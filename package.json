@@ -1,0 +1,31 @@
+{
+  "name": "helphome-platform",
+  "version": "1.0.0",
+  "description": "Helphome NDIS Support Platform MVP",
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev src/api/index.ts",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "db:generate": "drizzle-kit generate:sqlite",
+    "db:push": "wrangler d1 execute helphome-db --local --file=./drizzle/meta/0000_snapshot.json",
+    "test": "vitest"
+  },
+  "dependencies": {
+    "hono": "^4.3.0",
+    "drizzle-orm": "^0.30.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-router-dom": "^6.22.0"
+  },
+  "devDependencies": {
+    "@types/react": "^18.2.0",
+    "@types/react-dom": "^18.2.0",
+    "@vitejs/plugin-react": "^4.2.0",
+    "drizzle-kit": "^0.20.0",
+    "typescript": "^5.3.0",
+    "vite": "^5.1.0",
+    "wrangler": "^3.30.0",
+    "vitest": "^1.3.0"
+  }
+}

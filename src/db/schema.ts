@@ -5,6 +5,9 @@ export const users = sqliteTable('users', {
   email: text('email').notNull().unique(),
   passwordHash: text('password_hash').notNull(),
   role: text('role', { enum: ['client', 'worker', 'admin'] }).notNull(),
+  // NEW: Subscription Tier (The "Lower Fee" Engine)
+  subscriptionTier: text('subscription_tier', { enum: ['free', 'basic', 'premium'] }).default('free'),
+  subscriptionExpiry: text('subscription_expiry'),
   createdAt: text('created_at').default(new Date().toISOString()),
 });
 
@@ -13,11 +16,12 @@ export const profiles = sqliteTable('profiles', {
   userId: integer('user_id').references(() => users.id),
   fullName: text('full_name'),
   bio: text('bio'),
-  skills: text('skills'), // JSON string of skills
+  // NEW: Interests for Wellness Matching (The "Wellness Focus" Engine)
+  interests: text('interests'), // JSON string: ["dogs", "cooking", "music"]
+  skills: text('skills'), 
   hourlyRate: real('hourly_rate'),
-  wellnessGoals: text('wellness_goals'), // JSON string
-  location: text('location'),
-  verified: integer('verified', { mode: 'boolean' }).default(false),
+  wellnessGoals: text('wellness_goals'),
+  avatarUrl: text('avatar_url'),
 });
 
 export const bookings = sqliteTable('bookings', {

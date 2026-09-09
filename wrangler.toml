@@ -4,10 +4,8 @@ compatibility_date = "2024-01-01"
 compatibility_flags = ["nodejs_compat"]
 
 [vars]
-ENVIRONMENT = "development"
-JWT_SECRET = "change-this-in-production"
+ENVIRONMENT = "local"
 
-[[d1_databases]]
-binding = "DB"
-database_name = "helphome-db"
-database_id = "your-database-id-here"
+[dev]
+local = true
+port = 8787

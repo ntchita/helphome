@@ -1,76 +1,90 @@
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
-import { jwt } from 'hono/jwt';
-import { getDb } from '../db/connection';
-import * as schema from '../db/schema';
+import { calculateWellnessMatch, rankWorkers } from './utils/matcher.ts';
 
 const app = new Hono();
 
-// Middleware
-app.use('/*', cors());
-// app.use('/api/*', jwt({ secret: process.env.JWT_SECRET || 'dev-secret' }));
+// Enable CORS for frontend
+app.use('/*', cors({
+  origin: ['http://localhost:5173', 'http://127.0.0.1:5173'],
+  allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowHeaders: ['Content-Type', 'Authorization'],
+  credentials: true,
+}));
 
-// Health Check
-app.get('/', (c) => c.json({ status: 'ok', message: 'Helphome API Running' }));
+// --- REAL DATA WITH INTERESTS FOR WELLNESS MATCHING ---
+const workers = [
+  { 
+    id: 1, 
+    name: "Jane Doe", 
+    skills: ["Personal Care", "Medication"], 
+    interests: ["dogs", "gardening", "classic movies"], 
+    rate: 45, 
+    bio: "Experienced support worker who loves animals." 
+  },
+  { 
+    id: 2, 
+    name: "John Smith", 
+    skills: ["Transport", "Community Access"], 
+    interests: ["sports", "fitness", "coaching"], 
+    rate: 40, 
+    bio: "Former coach, great for active clients." 
+  },
+  { 
+    id: 3, 
+    name: "Sarah Lee", 
+    skills: ["Community Access", "Social Support"], 
+    interests: ["music", "art", "museums"], 
+    rate: 50, 
+    bio: "Artist at heart, love cultural outings." 
+  }
+];
 
-// Auth Endpoints (Mock)
-app.post('/api/auth/register', async (c) => {
-  const body = await c.req.json();
-  // TODO: Implement actual registration with password hashing
-  return c.json({ message: 'Registration successful', user: { email: body.email, role: body.role } }, 201);
-});
+// Simulating a logged-in client profile for the demo
+const demoClientProfile = {
+  interests: ["dogs", "music", "outdoors"],
+  needs: ["Personal Care", "Companionship"]
+};
 
-app.post('/api/auth/login', async (c) => {
-  const body = await c.req.json();
-  // TODO: Implement actual login with JWT generation
-  return c.json({ message: 'Login successful', token: 'mock-jwt-token' });
-});
+app.get('/', (c) => c.json({ message: 'Helphome API Active', version: '1.0.0' }));
 
-// Worker Endpoints
+// GET Workers with REAL Wellness Matching Scores
 app.get('/api/workers', async (c) => {
-  // TODO: Query DB for workers
-  const mockWorkers = [
-    { id: 1, name: "Jane Doe", skills: ["Personal Care", "Community Access"], rate: 45, verified: true },
-    { id: 2, name: "John Smith", skills: ["Transport", "Household Tasks"], rate: 40, verified: true },
-    { id: 3, name: "Sarah Lee", skills: ["Specialist Disability"], rate: 55, verified: false }
-  ];
-  return c.json(mockWorkers);
+  // 1. Rank workers based on wellness/interest match
+  const ranked = rankWorkers(workers, demoClientProfile);
+  
+  // 2. Attach the calculated score to the response
+  const response_data = ranked.map(w => ({
+    ...w,
+    wellnessMatch: calculateWellnessMatch(w, demoClientProfile), // The "Real Wellness" Differentiator
+    platformFee: 0.00, // The "Lower Fees" Differentiator
+    totalCost: w.rate // Proof of no markup
+  }));
+
+  return c.json(response_data);
 });
 
-app.get('/api/workers/:id', async (c) => {
-  const id = c.req.param('id');
-  // TODO: Query DB for specific worker
-  return c.json({ id, name: "Jane Doe", skills: ["Personal Care"], rate: 45, bio: "Experienced support worker." });
-});
-
-// Booking Endpoints
+// POST Booking (Direct Contracting - No Agency Delay)
 app.post('/api/bookings', async (c) => {
   const body = await c.req.json();
-  // TODO: Save to DB
-  return c.json({ message: 'Booking created', booking: { ...body, id: Date.now(), status: 'pending' } }, 201);
-});
+  
+  // Immediate confirmation logic (Differentiator: Flexibility vs HireUp)
+  const booking = {
+    id: Date.now(),
+    clientId: body.clientId,
+    workerId: body.workerId,
+    status: 'confirmed', // Instantly confirmed, not "pending agency approval"
+    timestamp: new Date().toISOString(),
+    feeCharged: 0.00 // Explicitly showing $0 fee
+  };
 
-app.get('/api/bookings', async (c) => {
-  // TODO: Query DB for user's bookings
-  return c.json([
-    { id: 101, worker: "Jane Doe", date: "2024-03-20", status: "confirmed" },
-    { id: 102, worker: "John Smith", date: "2024-03-22", status: "pending" }
-  ]);
-});
+  console.log("✅ Booking Created Directly:", booking);
 
-// Wellness Endpoints
-app.post('/api/wellness/log', async (c) => {
-  const body = await c.req.json();
-  // TODO: Save wellness log to DB
-  return c.json({ message: 'Wellness logged', data: body }, 201);
-});
-
-app.get('/api/wellness/history', async (c) => {
-  // TODO: Query wellness history
-  return c.json([
-    { date: "2024-03-01", mood: 8, note: "Great day!" },
-    { date: "2024-03-05", mood: 6, note: "Feeling okay." }
-  ]);
+  return c.json({ 
+    success: true, 
+    message: "Booking confirmed directly with worker.", 
+    booking 
+  }, 201);
 });
 
 export default app;

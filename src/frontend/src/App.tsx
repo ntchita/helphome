@@ -1,23 +1,29 @@
-import { Routes, Route, Link } from 'react-router-dom'
-import Home from './pages/Home'
-import Dashboard from './pages/Dashboard'
-import Login from './pages/Login'
+import { Routes, Route, Link } from 'react-router-dom'; // No BrowserRouter import needed
+import Home from './pages/Home';
+import Dashboard from './pages/Dashboard';
 
 function App() {
   return (
-    <div className="app">
-      <nav style={{ padding: '1rem', borderBottom: '1px solid #333' }}>
-        <Link to="/" style={{ marginRight: '1rem' }}>Home</Link>
-        <Link to="/login" style={{ marginRight: '1rem' }}>Login</Link>
-        <Link to="/dashboard">Dashboard</Link>
+    // NO BrowserRouter here anymore
+    <div>
+      <nav style={{ background: '#008080', padding: '1rem', color: 'white' }}>
+        <div style={{ maxWidth: '1000px', margin: '0 auto', display: 'flex', justifyContent: 'space-between' }}>
+          <h1 style={{ margin: 0 }}>Helphome</h1>
+          <div>
+            <Link to="/" style={{ color: 'white', marginRight: '15px', textDecoration: 'none' }}>Home</Link>
+            <Link to="/dashboard" style={{ color: 'white', textDecoration: 'none' }}>Dashboard</Link>
+          </div>
+        </div>
       </nav>
-      <Routes>
-        <Route path="/" element={<Home />} />
-        <Route path="/login" element={<Login />} />
-        <Route path="/dashboard" element={<Dashboard />} />
-      </Routes>
+      
+      <div style={{ maxWidth: '1000px', margin: '0 auto', padding: '20px' }}>
+        <Routes>
+          <Route path="/" element={<Home />} />
+          <Route path="/dashboard" element={<Dashboard />} />
+        </Routes>
+      </div>
     </div>
-  )
+  );
 }
 
-export default App
+export default App;

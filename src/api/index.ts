@@ -47,7 +47,7 @@ const clientProfiles: Record<string, any> = {
   "default": { interests: ["dogs", "music", "outdoors"], needs: ["Personal Care", "Companionship"] }
 };
 
-app.get('/', (c) => c.json({ message: 'Helphome API Active', version: '1.0.0' }));
+app.get('/', (c) => c.json({ message: 'HelpHome API Active', version: '1.0.0' }));
 
 // GET Workers with REAL Wellness Matching Scores
 app.get('/api/workers', async (c) => {
@@ -57,6 +57,7 @@ app.get('/api/workers', async (c) => {
   const response_data = ranked.map(w => ({
     ...w,
     wellnessMatchScore: calculateWellnessMatch(w, profile),
+	wellnessMatch: calculateWellnessMatch(w, profile),
     platformFee: 0.00,
     totalCost: w.rate
   }));
@@ -112,6 +113,19 @@ app.post('/api/bookings', async (c) => {
     console.error("❌ Booking Error:", error);
     return c.json({ success: false, message: "Internal server error" }, 500);
   }
+});
+
+// --- DEMO SAFETY STUBS (respond gracefully; real DB wiring is post-Monday) ---
+app.post('/api/wellness', async (c) => {
+  const body = await c.req.json();
+  console.log('✅ Wellness check recorded:', body);
+  return c.json({ success: true, message: 'Wellness check recorded' }, 201);
+});
+
+app.post('/api/auth/register', async (c) => {
+  const body = await c.req.json();
+  console.log('✅ Registration (demo):', body.email);
+  return c.json({ success: true, message: 'Registered (demo)' }, 201);
 });
 
 export default app;

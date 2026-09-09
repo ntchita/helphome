@@ -105,18 +105,11 @@ export default function WorkerList() {
               </p>
 
               {/* Button updates text based on status, NO ALERTS */}
-              <button 
-                onClick={() => handleBookNow(worker.id, worker.name || 'Worker')}
-                disabled={bookingStatus[worker.id] === 'sending' || bookingStatus[worker.id] === 'success'}
-                style={{
-                  backgroundColor: bookingStatus[worker.id] === 'success' ? '#4caf50' : '',
-                  color: bookingStatus[worker.id] === 'success' ? '#fff' : ''
-                }}
-              >
-                {bookingStatus[worker.id] === 'sending' ? 'Sending...' : 
-                 bookingStatus[worker.id] === 'success' ? '✓ Request Sent' :
-                 bookingStatus[worker.id] === 'error' ? 'Retry' : 'Book Now'}
-              </button>
+              <button
+				  className={`btn btn-block ${bookingStatus[worker.id] === 'success' ? 'btn-success' : ''}`}
+				  onClick={() => handleBookNow(worker.id, worker.name || 'Worker')}
+				  disabled={bookingStatus[worker.id] === 'sending' || bookingStatus[worker.id] === 'success'}
+				>
             </div>
           ))}
         </div>

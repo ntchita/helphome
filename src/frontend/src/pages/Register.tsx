@@ -34,7 +34,7 @@ export default function Register() {
 
   return (
     <div className="register-page">
-      <h1>Helphome Registration</h1>
+      <h1>HelpHome Registration</h1>
       <form onSubmit={handleSubmit}>
         <div>
           <label>Email:</label>

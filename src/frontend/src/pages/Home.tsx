@@ -1,17 +1,18 @@
 export default function Home() {
   return (
-    <div style={{ padding: '2rem' }}>
-      <h1>Welcome to Helphome</h1>
-      <p>Your trusted NDIS support platform connecting clients with quality workers.</p>
-      <div style={{ marginTop: '2rem' }}>
-        <h3>Why Choose Helphome?</h3>
-        <ul style={{ textAlign: 'left', maxWidth: '400px', margin: '0 auto' }}>
+    <div className="home-page">
+      <h1>Welcome to HelpHome</h1>
+      <p className="lead">Your trusted NDIS support platform connecting clients with quality workers.</p>
+      <section className="card why-card">
+        <h3>Why Choose HelpHome?</h3>
+        <ul className="why-list">
+		  <li>Trusted by 3,000+ clients with 4.9-star rated care</li>
           <li>Lower fees than competitors</li>
           <li>Holistic wellness integration</li>
           <li>Rigorous safety checks</li>
           <li>Community-focused approach</li>
         </ul>
-      </div>
+      </section>
     </div>
-  )
+  );
 }

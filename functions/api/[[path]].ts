@@ -1,4 +1,4 @@
-const API = 'https://helphome-demo.lifewealth.workers.dev';
+const API = 'https://helphome-api.lifewealth.workers.dev';
 
 export async function onRequest(context: any) {
   const url = new URL(context.request.url);

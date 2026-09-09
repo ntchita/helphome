@@ -1,6 +1,6 @@
 name = "helphome-api"
 main = "src/api/index.ts"
-compatibility_date = "2024-01-01"
+compatibility_date = "2026-09-01"
 compatibility_flags = ["nodejs_compat"]
 
 [vars]
@@ -9,3 +9,5 @@ ENVIRONMENT = "local"
 [dev]
 local = true
 port = 8787
+
+workers_dev = true

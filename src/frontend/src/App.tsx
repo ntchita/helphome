@@ -2,6 +2,7 @@ import { Routes, Route, Link } from 'react-router-dom';
 import Home from './pages/Home';
 import Dashboard from './pages/Dashboard';
 import WellnessCheck from './pages/WellnessCheck';
+import WorkerHub from './pages/WorkerHub';
 
 function App() {
   return (
@@ -19,6 +20,7 @@ function App() {
             <Link to="/">Home</Link>
             <Link to="/dashboard">Dashboard</Link>
             <Link to="/wellness">Wellness</Link>
+			<Link to="/worker-hub">Worker Hub</Link>
           </div>
         </div>
       </nav>
@@ -27,6 +29,7 @@ function App() {
           <Route path="/" element={<Home />} />
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/wellness" element={<WellnessCheck />} />
+		  <Route path="/worker-hub" element={<WorkerHub />} />
         </Routes>
       </main>
     </div>

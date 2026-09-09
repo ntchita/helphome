@@ -40,25 +40,25 @@ const workers = [
   }
 ];
 
-// Simulating a logged-in client profile for the demo
-const demoClientProfile = {
-  interests: ["dogs", "music", "outdoors"],
-  needs: ["Personal Care", "Companionship"]
+// Mock Client Profiles (In real app, fetch from DB based on clientId)
+const clientProfiles: Record<string, any> = {
+  "user-123": { interests: ["sports", "fitness"], needs: ["Transport"] },
+  // Default fallback if no ID provided or ID not found
+  "default": { interests: ["dogs", "music", "outdoors"], needs: ["Personal Care", "Companionship"] }
 };
 
 app.get('/', (c) => c.json({ message: 'Helphome API Active', version: '1.0.0' }));
 
 // GET Workers with REAL Wellness Matching Scores
 app.get('/api/workers', async (c) => {
-  // 1. Rank workers based on wellness/interest match
-  const ranked = rankWorkers(workers, demoClientProfile);
+  const profile = clientProfiles["default"]; // Default for list view
+  const ranked = rankWorkers(workers, profile);
   
-  // 2. Attach the calculated score to the response
   const response_data = ranked.map(w => ({
     ...w,
-    wellnessMatch: calculateWellnessMatch(w, demoClientProfile), // The "Real Wellness" Differentiator
-    platformFee: 0.00, // The "Lower Fees" Differentiator
-    totalCost: w.rate // Proof of no markup
+    wellnessMatchScore: calculateWellnessMatch(w, profile),
+    platformFee: 0.00,
+    totalCost: w.rate
   }));
 
   return c.json(response_data);
@@ -66,25 +66,52 @@ app.get('/api/workers', async (c) => {
 
 // POST Booking (Direct Contracting - No Agency Delay)
 app.post('/api/bookings', async (c) => {
-  const body = await c.req.json();
-  
-  // Immediate confirmation logic (Differentiator: Flexibility vs HireUp)
-  const booking = {
-    id: Date.now(),
-    clientId: body.clientId,
-    workerId: body.workerId,
-    status: 'confirmed', // Instantly confirmed, not "pending agency approval"
-    timestamp: new Date().toISOString(),
-    feeCharged: 0.00 // Explicitly showing $0 fee
-  };
+  try {
+    const body = await c.req.json();
+    const { workerId, clientId } = body;
 
-  console.log("✅ Booking Created Directly:", booking);
+    if (!workerId) {
+      return c.json({ success: false, message: "Worker ID required" }, 400);
+    }
 
-  return c.json({ 
-    success: true, 
-    message: "Booking confirmed directly with worker.", 
-    booking 
-  }, 201);
+    // 1. Find the worker
+    const worker = workers.find(w => w.id === workerId);
+    if (!worker) {
+      return c.json({ success: false, message: "Worker not found" }, 404);
+    }
+
+    // 2. Get Client Profile (Mocked lookup)
+    const profile = (clientId && clientProfiles[clientId]) ? clientProfiles[clientId] : clientProfiles["default"];
+
+    // 3. Calculate REAL Match Score using your matcher utility
+    const matchScore = calculateWellnessMatch(worker, profile);
+
+    // 4. Create Booking Record
+    const booking = {
+      id: Date.now(),
+      clientId: clientId || "guest",
+      workerId: worker.id,
+      workerName: worker.name,
+      status: 'confirmed',
+      timestamp: new Date().toISOString(),
+      feeCharged: 0.00,
+      matchScore: matchScore // Return the calculated score
+    };
+
+    console.log("✅ Booking Created Directly:", booking);
+
+    return c.json({ 
+      success: true, 
+      message: `Booking confirmed with ${worker.name}`, 
+      booking,
+      matchScore,
+      status: 'confirmed'
+    }, 201);
+
+  } catch (error) {
+    console.error("❌ Booking Error:", error);
+    return c.json({ success: false, message: "Internal server error" }, 500);
+  }
 });
 
 export default app;

@@ -94,6 +94,9 @@ export default function Dashboard() {
 
       <section>
         <h2>Choose Your Plan</h2>
+        <p className="hub-explain" style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
+          All new pilot accounts start on our free Starter plan. Upgrade to Premium anytime for priority matching and 24/7 support.
+        </p>
         <div className="plans-grid">
           <article className="plan">
             <h3>Starter</h3>

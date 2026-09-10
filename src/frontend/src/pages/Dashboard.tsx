@@ -88,7 +88,7 @@ export default function Dashboard() {
         <div className="hero-stats">
           <div className="stat-chip"><strong>100%</strong><span>Direct Care</span></div>
           <div className="stat-chip"><strong>Instant</strong><span>Confirmation</span></div>
-          <div className="stat-chip"><strong>Wellness</strong><span>AI Matching</span></div>
+          <div className="stat-chip"><strong>Wellness</strong><span>Match Scoring</span></div>
         </div>
       </header>
 

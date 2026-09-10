@@ -201,3 +201,9 @@ input[type="range"] { width: 100%; height: 6px; accent-color: var(--hh-blue); cu
 
 /* ---------- Worker Hub v3: stop button text wrapping (the real fix) ---------- */
 .hub-card .btn-block { white-space: nowrap; font-size: 0.82rem; padding-left: 1rem; padding-right: 1rem; }
+
+/* ---------- Worker Hub v4: center the request buttons ---------- */
+.request-actions { justify-content: center; }
+
+/* ---------- Worker Hub v5: size request buttons like the worker tabs ---------- */
+.request-actions .btn { padding: 0.5rem 1.3rem; font-size: 0.9rem; }

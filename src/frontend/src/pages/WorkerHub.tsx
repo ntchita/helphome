@@ -53,7 +53,7 @@ export default function WorkerHub() {
     <div className="page worker-hub-page">
       <header className="hub-header">
         <h1>Worker Hub</h1>
-        <p className="hub-note">Representative worker view — pilot data.</p>
+        <p className="hub-note">Representative worker view.</p>
       </header>
 
       <div className="hub-switcher">

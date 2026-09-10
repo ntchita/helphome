@@ -207,3 +207,37 @@ input[type="range"] { width: 100%; height: 6px; accent-color: var(--hh-blue); cu
 
 /* ---------- Worker Hub v5: size request buttons like the worker tabs ---------- */
 .request-actions .btn { padding: 0.5rem 1.3rem; font-size: 0.9rem; }
+
+/* ---------- Login gate v6 (additive) ---------- */
+.login-page h1 { text-align: center; margin-top: 0; }
+.login-page .lead { text-align: center; margin-bottom: 1.25rem; }
+.demo-hint { background: var(--hh-blue-soft); border: 1px solid #BFE6F7; border-radius: var(--radius-sm); padding: 0.9rem 1rem; margin-bottom: 1.25rem; text-align: center; }
+.demo-hint p { margin: 0 0 0.6rem 0; color: var(--hh-blue-dark); font-size: 0.9rem; }
+.demo-hint button { padding: 0.45rem 1.1rem; font-size: 0.78rem; }
+.login-footer { margin-top: 1.5rem; text-align: center; font-size: 0.9rem; color: var(--hh-grey); }
+.login-footer p { margin: 0.4rem 0; }
+.nav-links button { background: none; border: none; color: var(--hh-ink); margin-left: 2rem; font-weight: 600; font-size: 0.95rem; text-transform: none; letter-spacing: 0; padding: 0; cursor: pointer; font-family: var(--font-body); }
+.nav-links button:hover { color: var(--hh-blue); background: none; }
+
+/* ---------- Nav logout link (additive) ---------- */
+.nav-links button { background: none; border: none; color: var(--hh-ink); margin-left: 2rem; padding: 0; font-family: var(--font-body); font-weight: 600; font-size: 0.95rem; text-transform: none; letter-spacing: 0; cursor: pointer; }
+.nav-links button:hover { color: var(--hh-blue); background: none; }
+
+/* ---------- Login v7: role buttons (additive) ---------- */
+.role-buttons { display: flex; gap: 0.6rem; justify-content: center; flex-wrap: wrap; }
+.role-buttons button { padding: 0.5rem 1.3rem; font-size: 0.85rem; }
+
+/* ---------- Admin dashboard (additive) ---------- */
+.admin-page { max-width: 1000px; margin: 0 auto; }
+.admin-stat { margin: 0.4rem 0; }
+.admin-stat strong { color: var(--hh-blue, #00A3E0); font-size: 1.3rem; }
+.queue-row { display: flex; justify-content: space-between; align-items: center; gap: 1rem; padding: 0.75rem 0; border-bottom: 1px solid var(--hh-border, #D9E4EA); }
+.queue-row:last-of-type { border-bottom: none; }
+.queue-name { margin: 0 0 0.2rem 0; font-weight: 700; }
+.queue-row .btn { padding: 0.45rem 1.1rem; font-size: 0.78rem; white-space: nowrap; }
+.activity-list { list-style: none; margin: 0; padding: 0; }
+.activity-list li { padding: 0.5rem 0; border-bottom: 1px solid var(--hh-border, #D9E4EA); font-size: 0.92rem; }
+.activity-list li:last-child { border-bottom: none; }
+
+/* ---------- Nav v9: active page highlight (additive) ---------- */
+.nav-links a.active { color: var(--hh-blue); background: var(--hh-blue-soft); padding: 0.4rem 1rem; border-radius: 999px; }

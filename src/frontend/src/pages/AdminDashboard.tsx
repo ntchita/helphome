@@ -24,7 +24,7 @@ export default function AdminDashboard() {
   return (
     <div className="page admin-page">
       <header className="hub-header">
-        <h1>Coordinator Dashboard</h1>
+        <h1>Verification Queue</h1>
         <p className="hub-note">Representative pilot data — demo view.</p>
       </header>
 

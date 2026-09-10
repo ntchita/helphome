@@ -4,7 +4,15 @@ import { useNavigate } from 'react-router-dom';
 const ACCOUNTS: { [email: string]: string } = {
   'client@test.com': 'client',
   'worker@test.com': 'worker',
+  'coordinator@test.com': 'coordinator',
   'admin@test.com': 'admin',
+};
+
+const HOMES: { [role: string]: string } = {
+  client: '/dashboard',
+  worker: '/my-hub',
+  coordinator: '/coordinator',
+  admin: '/admin',
 };
 
 export default function Login({ onLogin }: { onLogin: () => void }) {
@@ -26,7 +34,7 @@ export default function Login({ onLogin }: { onLogin: () => void }) {
       localStorage.setItem('helphome_logged_in', 'true');
       localStorage.setItem('helphome_role', role);
       onLogin();
-      navigate(role === 'client' ? '/dashboard' : role === 'worker' ? '/worker-hub' : '/admin');
+      navigate(HOMES[role]);
     } else {
       setError('Invalid credentials. Pick a role button above.');
     }
@@ -42,6 +50,7 @@ export default function Login({ onLogin }: { onLogin: () => void }) {
         <div className="role-buttons">
           <button type="button" onClick={() => fill('client@test.com')}>Client</button>
           <button type="button" onClick={() => fill('worker@test.com')}>Worker</button>
+          <button type="button" onClick={() => fill('coordinator@test.com')}>Coordinator</button>
           <button type="button" onClick={() => fill('admin@test.com')}>Admin</button>
         </div>
       </div>

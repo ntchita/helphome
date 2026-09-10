@@ -3,15 +3,19 @@ import { Routes, Route, Link, Navigate, useLocation } from 'react-router-dom';
 import Home from './pages/Home';
 import Dashboard from './pages/Dashboard';
 import WellnessCheck from './pages/WellnessCheck';
-import WorkerHub from './pages/WorkerHub';
+import WorkerHome from './pages/WorkerHome';
+import CoordinatorHub from './pages/CoordinatorHub';
 import AdminDashboard from './pages/AdminDashboard';
+import AdminHome from './pages/AdminHome';
+import ClientRequests from './pages/ClientRequests';
 import Login from './pages/Login';
 
-type Role = 'client' | 'worker' | 'admin' | null;
+type Role = 'client' | 'worker' | 'coordinator' | 'admin' | null;
 
 const ROLE_HOME: { [r: string]: string } = {
   client: '/dashboard',
-  worker: '/worker-hub',
+  worker: '/my-hub',
+  coordinator: '/coordinator',
   admin: '/admin',
 };
 
@@ -23,6 +27,7 @@ function App() {
   );
 
   const location = useLocation();
+  const [menuOpen, setMenuOpen] = useState(false);
   
   const logout = () => {
     localStorage.removeItem('helphome_logged_in');
@@ -45,7 +50,8 @@ function App() {
       <nav>
         <div className="nav-content">
           <Link to="/" className="brand">HelpHome</Link>
-		   <div className="nav-links">
+          <button className="nav-toggle" onClick={() => setMenuOpen(!menuOpen)} aria-label="Menu">☰</button>
+          <div className={`nav-links ${menuOpen ? 'open' : ''}`} onClick={() => setMenuOpen(false)}>
             <Link to="/" className={location.pathname === '/' ? 'active' : ''}>Home</Link>
             {role === 'client' && (
               <>
@@ -53,8 +59,15 @@ function App() {
                 <Link to="/wellness" className={location.pathname === '/wellness' ? 'active' : ''}>Wellness</Link>
               </>
             )}
-            {role === 'worker' && <Link to="/worker-hub" className={location.pathname === '/worker-hub' ? 'active' : ''}>Worker Hub</Link>}
-            {role === 'admin' && <Link to="/admin" className={location.pathname === '/admin' ? 'active' : ''}>Coordinator</Link>}
+            {role === 'admin' && <Link to="/admin" className={location.pathname === '/admin' ? 'active' : ''}>Admin Dashboard</Link>}
+            {role === 'worker' && <Link to="/my-hub" className={location.pathname === '/my-hub' ? 'active' : ''}>My Hub</Link>}
+            {(role === 'coordinator' || role === 'admin') && (
+              <>
+                <Link to="/coordinator" className={location.pathname === '/coordinator' ? 'active' : ''}>Coordinator Hub</Link>
+                <Link to="/verification" className={location.pathname === '/verification' ? 'active' : ''}>Verification</Link>
+              </>
+            )}
+            {role === 'admin' && <Link to="/requests" className={location.pathname === '/requests' ? 'active' : ''}>Client Requests</Link>}
             {role ? (
               <Link to="/" onClick={logout}>Log out</Link>
             ) : (
@@ -68,10 +81,13 @@ function App() {
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/login" element={<Login onLogin={() => setRole(localStorage.getItem('helphome_role') as Role)} />} />
-          <Route path="/dashboard" element={allow('client') ? <Dashboard /> : bounce} />
-          <Route path="/wellness" element={allow('client') ? <WellnessCheck /> : bounce} />
-          <Route path="/worker-hub" element={allow('worker') ? <WorkerHub /> : bounce} />
-          <Route path="/admin" element={allow('admin') ? <AdminDashboard /> : bounce} />
+          <Route path="/dashboard" element={role === 'client' ? <Dashboard /> : bounce} />
+          <Route path="/wellness" element={role === 'client' ? <WellnessCheck /> : bounce} />
+          <Route path="/my-hub" element={role === 'worker' ? <WorkerHome /> : bounce} />
+          <Route path="/coordinator" element={(role === 'coordinator' || role === 'admin') ? <CoordinatorHub /> : bounce} />
+          <Route path="/admin" element={role === 'admin' ? <AdminHome /> : bounce} />
+          <Route path="/verification" element={(role === 'coordinator' || role === 'admin') ? <AdminDashboard /> : bounce} />
+          <Route path="/requests" element={role === 'admin' ? <ClientRequests /> : bounce} />
           <Route path="*" element={bounce} />
         </Routes>
       </main>

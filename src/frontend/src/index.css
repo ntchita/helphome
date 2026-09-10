@@ -330,3 +330,32 @@ input[type="range"] { width: 100%; height: 6px; accent-color: var(--hh-blue); cu
   .nav-links a { margin: 0; padding: 0.7rem 0.25rem; border-top: 1px solid var(--hh-border); text-align: center; }
   .nav-links a.active { border-radius: var(--radius-sm); }
 }
+
+/* ---------- Register (additive) ---------- */
+.register-page { max-width: 760px; margin: 0 auto; padding: 2rem 1.5rem 3rem; }
+.register-page h1 { text-align: center; }
+.register-page .lead { text-align: center; color: var(--hh-grey); margin-bottom: 2rem; }
+.door-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1.25rem; margin-bottom: 1.5rem; }
+.door-card { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 0.5rem; padding: 1.75rem 1.25rem; background: var(--hh-white); border: 2px solid var(--hh-border); border-radius: var(--radius); cursor: pointer; transition: border-color 0.2s, transform 0.2s, box-shadow 0.2s; font-family: var(--font-body); color: var(--hh-ink); }
+.door-card:hover { border-color: var(--hh-blue); transform: translateY(-3px); box-shadow: 0 10px 24px rgba(0, 163, 224, 0.12); }
+.door-card h3 { margin: 0.25rem 0 0; color: var(--hh-blue); }
+.door-card p { margin: 0; font-size: 0.9rem; color: var(--hh-grey); }
+.door-icon { font-size: 2rem; }
+.register-footer { text-align: center; color: var(--hh-grey); font-size: 0.9rem; }
+.back-link { background: none; border: none; color: var(--hh-blue); font-weight: 700; padding: 0; margin-bottom: 1rem; cursor: pointer; text-transform: none; letter-spacing: 0; }
+.back-link:hover { background: none; text-decoration: underline; }
+.interest-chips { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.4rem; }
+.chip { padding: 0.45rem 1rem; border-radius: 999px; border: 1.5px solid var(--hh-border); background: var(--hh-white); color: var(--hh-ink); font-size: 0.85rem; cursor: pointer; text-transform: none; letter-spacing: 0; font-weight: 600; }
+.chip.active { background: var(--hh-blue); border-color: var(--hh-blue); color: #fff; }
+.chip:hover { border-color: var(--hh-blue); }
+.promise-list { list-style: none; padding: 0; margin: 0 0 1.5rem; }
+.promise-list li { padding: 0.75rem 0; border-bottom: 1px solid var(--hh-border); font-size: 0.95rem; }
+.promise-list.compact li { padding: 0.5rem 0; font-size: 0.9rem; }
+.promise-list strong { color: var(--hh-blue); }
+
+/* ---------- Register v2: hover, casing, field widths (additive) ---------- */
+.door-card { text-transform: none; letter-spacing: 0; }
+.door-card:hover { background: var(--hh-white); }
+.register-page input,
+.register-page select,
+.register-page textarea { width: 100%; padding: 0.8rem 1rem; border: 1px solid var(--hh-border); border-radius: var(--radius-sm); font-family: var(--font-body); font-size: 0.95rem; color: var(--hh-ink); background: var(--hh-white); }

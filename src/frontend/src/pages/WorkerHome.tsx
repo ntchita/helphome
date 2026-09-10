@@ -4,7 +4,7 @@ type CheckType = 'load' | 'supported' | 'balance';
 
 const CHECK_META: { [k in CheckType]: { question: string; low: string; high: string } } = {
   load: { question: 'How manageable was your caseload this week?', low: 'Overwhelmed', high: 'On top of it' },
-  supported: { question: 'How supported did you feel by your coordinator?', low: 'Alone', high: 'Supported' },
+  supported: { question: 'How supported did you feel by your manager?', low: 'Alone', high: 'Supported' },
   balance: { question: 'How balanced did your work and life feel?', low: 'Drained', high: 'Balanced' },
 };
 
@@ -88,11 +88,11 @@ export default function WorkerHome() {
             <label>{meta.question} Score (1–10): {score}</label>
             <input type="range" min={1} max={10} value={score} onChange={(e) => setScore(parseInt(e.target.value))} />
             <div className="mood-labels"><span>{meta.low}</span><span>{meta.high}</span></div>
-            <textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Anything you want your coordinator to know? (optional)" rows={2} />
+            <textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Anything you want your manager to know? (optional)" rows={2} />
             <button type="submit" className="btn btn-block">Submit check-in</button>
           </form>
           {recorded && <div className="flash success">✓ Check-in recorded — confidential. Never affects your ratings, bookings or pay.</div>}
-          <p className="hub-explain">Confidential by design: your coordinator sees a status (Thriving / Steady / At risk), never your answers.</p>
+          <p className="hub-explain">Confidential by design: your manager sees a status (Thriving / Steady / At risk), never your answers.</p>
           <button className="btn btn-block" style={{ marginTop: '0.75rem' }}>Flag I need support</button>
         </article>
       </section>

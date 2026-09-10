@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom';
 const KPIS = [
   { label: 'Active clients', value: '12', trend: '+3 this month', up: true },
   { label: 'Active workers', value: '3', trend: 'Pilot capacity', up: true },
-  { label: 'Coordinators', value: '2', trend: '+1 pending invite', up: true },
+  { label: 'Managers', value: '2', trend: '+1 pending invite', up: true },
   { label: 'Bookings this week', value: '6', trend: '↑ from 4 last week', up: true },
   { label: 'Acceptance rate', value: '67%', trend: '4 of 6 accepted', up: false },
   { label: 'Avg wellness match', value: '78%', trend: '↑ from 71%', up: true },
@@ -21,16 +21,16 @@ interface Alert {
 }
 
 const INITIAL_ALERTS: Alert[] = [
-  { id: 1, icon: '🔴', level: 'danger', text: 'John Smith — wellbeing At Risk. Welfare chat scheduled by coordinator.', action: 'View in Coordinator Hub', link: '/coordinator', dismissed: false },
+  { id: 1, icon: '🔴', level: 'danger', text: 'John Smith — wellbeing At Risk. Welfare chat scheduled by manager.', action: 'View in Manager Hub', link: '/manager', dismissed: false },
   { id: 2, icon: '🟡', level: 'warn', text: '1 verification pending — John Smith (Transport). Background check awaiting review.', action: 'Open Verification Queue', link: '/verification', dismissed: false },
   { id: 3, icon: '🟡', level: 'warn', text: '2 client requests declined this week. Auto re-match offered to clients.', action: 'View Client Requests', link: '/requests', dismissed: false },
-  { id: 4, icon: '🔵', level: 'info', text: 'Worker capacity at 71% average across roster. No overload flags.', action: 'View Coordinator Hub', link: '/coordinator', dismissed: false },
+  { id: 4, icon: '🔵', level: 'info', text: 'Worker capacity at 71% average across roster. No overload flags.', action: 'View Manager Hub', link: '/manager', dismissed: false },
 ];
 
 const ACTIVITY = [
   { time: 'Today 11:42', event: 'Jane Doe accepted booking — Mark T. · Personal Care · Fri 10:00', icon: '✅' },
   { time: 'Today 10:15', event: 'Jane Doe submitted wellbeing check-in — Load & Energy: 7/10', icon: '💚' },
-  { time: 'Today 09:30', event: 'Coordinator scheduled welfare chat with John Smith', icon: '📞' },
+  { time: 'Today 09:30', event: 'Manager scheduled welfare chat with John Smith', icon: '📞' },
   { time: 'Yesterday', event: 'Mei L. booked Sarah Lee — Community Access · Wed 13:00', icon: '📋' },
   { time: 'Yesterday', event: 'Sarah Lee submitted wellbeing check-in — Feeling Supported: 8/10', icon: '💚' },
   { time: 'Mon', event: 'John Smith declined booking — Dana W. · Transport (no penalty applied)', icon: '↩️' },
@@ -40,8 +40,8 @@ const ACTIVITY = [
 
 const PEOPLE = [
   { label: 'Clients', count: 12, detail: '2 new this week · 4 active bookings', link: '/requests', linkLabel: 'Client Requests →' },
-  { label: 'Workers', count: 3, detail: '1 flagged (At Risk) · avg 71% capacity', link: '/coordinator', linkLabel: 'Coordinator Hub →' },
-  { label: 'Coordinators', count: 2, detail: '1 active · 1 pending invite', link: '', linkLabel: 'Roster view post-pilot' },
+  { label: 'Workers', count: 3, detail: '1 flagged (At Risk) · avg 71% capacity', link: '/manager', linkLabel: 'Manager Hub →' },
+  { label: 'Managers', count: 2, detail: '1 active · 1 pending invite', link: '', linkLabel: 'Roster view post-pilot' },
 ];
 
 export default function AdminHome() {
@@ -149,9 +149,9 @@ export default function AdminHome() {
       </section>
 
       <section className="quick-links">
-        <Link to="/coordinator" className="quick-link-card">
+        <Link to="/manager" className="quick-link-card">
           <span className="ql-icon">👷</span>
-          <span>Coordinator Hub</span>
+          <span>Manager Hub</span>
         </Link>
         <Link to="/verification" className="quick-link-card">
           <span className="ql-icon">✅</span>

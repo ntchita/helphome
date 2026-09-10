@@ -23,7 +23,7 @@ const statusOf = (checkins: number[]) => {
   return { label: 'At risk — check in', cls: 'wb-atrisk' };
 };
 
-export default function CoordinatorHub() {
+export default function ManagerHub() {
   const [chat, setChat] = useState<{ [id: string]: boolean }>({});
   const flags = ROSTER.filter((w) => statusOf(w.checkins).cls === 'wb-atrisk').length;
 
@@ -34,8 +34,8 @@ export default function CoordinatorHub() {
   return (
     <div className="page worker-hub-page">
       <header className="hub-header">
-        <h1>Coordinator Hub</h1>
-        <p className="hub-note">Representative coordinator view — pilot data.</p>
+        <h1>Manager Hub</h1>
+        <p className="hub-note">Representative manager view — pilot data.</p>
         <p className="hub-sub">{ROSTER.length} assigned workers · {flags} wellbeing flag{flags === 1 ? '' : 's'} this week</p>
       </header>
 
@@ -59,7 +59,7 @@ export default function CoordinatorHub() {
               </div>
               <p className="roster-line"><strong>Availability:</strong> {w.availability}</p>
               <p className="roster-line"><strong>Last check-in:</strong> {w.lastCheckin}</p>
-              <p className="hub-explain">Wellbeing status derives from confidential check-ins — coordinators see the status, never the answers.</p>
+              <p className="hub-explain">Wellbeing status derives from confidential check-ins — managers see the status, never the answers.</p>
               {chat[w.id] && <div className="flash success">✓ Welfare chat scheduled — {w.name} notified (demo)</div>}
               <button className="btn secondary" onClick={() => schedule(w.id, w.name)}>Schedule welfare chat</button>
             </article>

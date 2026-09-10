@@ -4,14 +4,14 @@ import { useNavigate } from 'react-router-dom';
 const ACCOUNTS: { [email: string]: string } = {
   'client@test.com': 'client',
   'worker@test.com': 'worker',
-  'coordinator@test.com': 'coordinator',
+  'manager@test.com': 'manager',
   'admin@test.com': 'admin',
 };
 
 const HOMES: { [role: string]: string } = {
   client: '/dashboard',
   worker: '/my-hub',
-  coordinator: '/coordinator',
+  manager: '/manager',
   admin: '/admin',
 };
 
@@ -50,7 +50,7 @@ export default function Login({ onLogin }: { onLogin: () => void }) {
         <div className="role-buttons">
           <button type="button" onClick={() => fill('client@test.com')}>Client</button>
           <button type="button" onClick={() => fill('worker@test.com')}>Worker</button>
-          <button type="button" onClick={() => fill('coordinator@test.com')}>Coordinator</button>
+          <button type="button" onClick={() => fill('manager@test.com')}>Manager</button>
           <button type="button" onClick={() => fill('admin@test.com')}>Admin</button>
         </div>
       </div>

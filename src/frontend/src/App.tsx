@@ -12,6 +12,10 @@ import Login from './pages/Login';
 
 type Role = 'client' | 'worker' | 'coordinator' | 'admin' | null;
 
+// Bump this on every production deploy: sessions created by older builds
+// are cleared automatically on next page load.
+const BUILD_ID = '2026-09-roles-v3';
+
 const ROLE_HOME: { [r: string]: string } = {
   client: '/dashboard',
   worker: '/my-hub',
@@ -20,11 +24,17 @@ const ROLE_HOME: { [r: string]: string } = {
 };
 
 function App() {
-  const [role, setRole] = useState<Role>(() =>
-    localStorage.getItem('helphome_logged_in') === 'true'
+  const [role, setRole] = useState<Role>(() => {
+    if (localStorage.getItem('helphome_build') !== BUILD_ID) {
+      localStorage.removeItem('helphome_logged_in');
+      localStorage.removeItem('helphome_role');
+      localStorage.setItem('helphome_build', BUILD_ID);
+      return null;
+    }
+    return localStorage.getItem('helphome_logged_in') === 'true'
       ? (localStorage.getItem('helphome_role') as Role)
-      : null
-  );
+      : null;
+  });
 
   const location = useLocation();
   const [menuOpen, setMenuOpen] = useState(false);

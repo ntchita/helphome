@@ -53,7 +53,7 @@ export default function WorkerHub() {
     <div className="page worker-hub-page">
       <header className="hub-header">
         <h1>Worker Hub</h1>
-        <p className="hub-note">Representative worker view.</p>
+        <p className="hub-note">Representative worker view — pilot data. The demo previews three sample workers (one per service type); in production each worker sees only their own hub.</p>
       </header>
 
       <div className="hub-switcher">
@@ -87,7 +87,7 @@ export default function WorkerHub() {
         </article>
 
         <article className="card hub-card">
-          <h3>Incoming request</h3>
+          <h3>Incoming client request</h3>
           <p className="request-client"><strong>{w.request.client}</strong> · {w.request.service}</p>
           <p className="request-meta">{w.request.when} · Matched on: {w.request.matchedOn} · {w.request.matchPct}% wellness match</p>
           <div className="request-actions">
@@ -100,7 +100,7 @@ export default function WorkerHub() {
         </article>
 
         <article className="card hub-card">
-          <h3>Your wellbeing trend</h3>
+          <h3>Your wellbeing trend <span className="soon-badge">Post-pilot</span></h3>
           <div className="mood-bars">
             {w.mood.map((m, i) => (
               <div className="mood-col" key={i}>
@@ -109,6 +109,7 @@ export default function WorkerHub() {
               </div>
             ))}
           </div>
+          <p className="hub-explain">Preview of the post-pilot worker check-in: workers will log a short weekly wellbeing questionnaire and see their own trend here.</p>
           <button className="btn btn-block">Flag I need support</button>
         </article>
       </section>

@@ -241,3 +241,6 @@ input[type="range"] { width: 100%; height: 6px; accent-color: var(--hh-blue); cu
 
 /* ---------- Nav v9: active page highlight (additive) ---------- */
 .nav-links a.active { color: var(--hh-blue); background: var(--hh-blue-soft); padding: 0.4rem 1rem; border-radius: 999px; }
+
+/* ---------- Nav v10: keep link labels on one line (mobile) ---------- */
+.nav-links a { white-space: nowrap; }

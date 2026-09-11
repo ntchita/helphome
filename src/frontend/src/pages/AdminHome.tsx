@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
+import AdminCharts from './AdminCharts';
 
 const KPIS = [
   { label: 'Active clients', value: '12', trend: '+3 this month', up: true },
@@ -69,6 +70,8 @@ export default function AdminHome() {
           </div>
         ))}
       </section>
+	  
+	  <AdminCharts />
 
       <section className="admin-grid">
         <article className="card admin-card attention-card">

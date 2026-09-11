@@ -15,7 +15,7 @@ type Role = 'client' | 'worker' | 'manager' | 'admin' | null;
 
 // Bump this on every production deploy: sessions created by older builds
 // are cleared automatically on next page load.
-const BUILD_ID = '10-09-2026-v5';
+const BUILD_ID = '11-09-2026-charts';
 
 const ROLE_HOME: { [r: string]: string } = {
   client: '/dashboard',

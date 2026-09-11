@@ -359,3 +359,27 @@ input[type="range"] { width: 100%; height: 6px; accent-color: var(--hh-blue); cu
 .register-page input,
 .register-page select,
 .register-page textarea { width: 100%; padding: 0.8rem 1rem; border: 1px solid var(--hh-border); border-radius: var(--radius-sm); font-family: var(--font-body); font-size: 0.95rem; color: var(--hh-ink); background: var(--hh-white); }
+
+/* ---------- Admin charts (additive) ---------- */
+.charts-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem; margin-bottom: 2rem; }
+.chart-card { background: var(--hh-white); border: 1px solid var(--hh-border); border-radius: var(--radius); box-shadow: var(--shadow); padding: 1.5rem; }
+.chart-card h3 { margin: 0 0 0.2rem; }
+.chart-card svg { width: 100%; height: auto; display: block; margin-top: 0.75rem; }
+.chart-axis { font-size: 10px; fill: var(--hh-grey); font-family: var(--font-body); }
+.chart-val { font-size: 10px; fill: var(--hh-blue-dark); font-weight: 800; font-family: var(--font-body); }
+.chart-foot { margin: 0.75rem 0 0; font-size: 0.8rem; color: var(--hh-grey); font-style: italic; }
+.donut-wrap { display: flex; align-items: center; gap: 1rem; margin-top: 0.75rem; }
+.donut-wrap svg { width: 150px; flex-shrink: 0; margin-top: 0; }
+.donut-num { font-size: 26px; font-weight: 800; fill: var(--hh-ink); font-family: var(--font-display); }
+.donut-sub { font-size: 10px; fill: var(--hh-grey); font-family: var(--font-body); text-transform: uppercase; letter-spacing: 0.08em; }
+.donut-legend { list-style: none; margin: 0; padding: 0; flex: 1; }
+.donut-legend li { display: flex; align-items: center; gap: 0.5rem; font-size: 0.88rem; padding: 0.3rem 0; }
+.donut-legend strong { margin-left: auto; }
+.legend-dot { width: 12px; height: 12px; border-radius: 4px; flex-shrink: 0; }
+.chart-line { stroke-dasharray: 700; stroke-dashoffset: 700; animation: chart-draw 1.4s ease-out forwards; }
+@keyframes chart-draw { to { stroke-dashoffset: 0; } }
+.chart-area { opacity: 0; animation: chart-fade 0.8s ease-out 0.9s forwards; }
+.chart-seg { animation: chart-fade 0.7s ease-out backwards; }
+@keyframes chart-fade { to { opacity: 1; } }
+.chart-bar { transform-box: fill-box; transform-origin: bottom; animation: chart-rise 0.9s cubic-bezier(0.2, 0.8, 0.3, 1) backwards; }
+@keyframes chart-rise { from { transform: scaleY(0); } }

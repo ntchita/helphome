@@ -1,12 +1,7 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
-const ACCOUNTS: { [email: string]: string } = {
-  'client@test.com': 'client',
-  'worker@test.com': 'worker',
-  'manager@test.com': 'manager',
-  'admin@test.com': 'admin',
-};
+interface DemoAccount { label: string; email: string; }
 
 const HOMES: { [role: string]: string } = {
   client: '/dashboard',
@@ -17,9 +12,18 @@ const HOMES: { [role: string]: string } = {
 
 export default function Login({ onLogin }: { onLogin: () => void }) {
   const navigate = useNavigate();
+  const [accounts, setAccounts] = useState<DemoAccount[]>([]);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [checking, setChecking] = useState(false);
+
+  useEffect(() => {
+    fetch('/api/demo-accounts')
+      .then((r) => r.json())
+      .then((data) => setAccounts(data))
+      .catch(() => setError('Cannot reach the server. Is the API running?'));
+  }, []);
 
   const fill = (roleEmail: string) => {
     setEmail(roleEmail);
@@ -27,16 +31,29 @@ export default function Login({ onLogin }: { onLogin: () => void }) {
     setError('');
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const role = ACCOUNTS[email];
-    if (role && password === 'test') {
-      localStorage.setItem('helphome_logged_in', 'true');
-      localStorage.setItem('helphome_role', role);
-      onLogin();
-      navigate(HOMES[role]);
-    } else {
-      setError('Invalid credentials. Pick a role button above.');
+    setChecking(true);
+    setError('');
+    try {
+      const res = await fetch('/api/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      });
+      const result = await res.json();
+      if (result.ok && result.role) {
+        localStorage.setItem('helphome_logged_in', 'true');
+        localStorage.setItem('helphome_role', result.role);
+        onLogin();
+        navigate(HOMES[result.role]);
+      } else {
+        setError('Invalid credentials. Pick a role button above.');
+      }
+    } catch {
+      setError('Cannot reach the server. Is the API running?');
+    } finally {
+      setChecking(false);
     }
   };
 
@@ -44,17 +61,14 @@ export default function Login({ onLogin }: { onLogin: () => void }) {
     <div className="login-page">
       <h1>Welcome back</h1>
       <p className="lead">Sign in to access your dashboard and wellness tools.</p>
-
       <div className="demo-hint">
         <p><em>Choose a demo role:</em></p>
         <div className="role-buttons">
-          <button type="button" onClick={() => fill('client@test.com')}>Client</button>
-          <button type="button" onClick={() => fill('worker@test.com')}>Worker</button>
-          <button type="button" onClick={() => fill('manager@test.com')}>Manager</button>
-          <button type="button" onClick={() => fill('admin@test.com')}>Admin</button>
+          {accounts.map((a) => (
+            <button type="button" key={a.email} onClick={() => fill(a.email)}>{a.label}</button>
+          ))}
         </div>
       </div>
-
       <form onSubmit={handleSubmit} className="auth-form">
         <div>
           <label htmlFor="email">Email</label>
@@ -65,9 +79,10 @@ export default function Login({ onLogin }: { onLogin: () => void }) {
           <input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" required />
         </div>
         {error && <div className="error">{error}</div>}
-        <button type="submit" className="btn btn-block">Sign in</button>
+        <button type="submit" className="btn btn-block" disabled={checking}>
+          {checking ? 'Signing in...' : 'Sign in'}
+        </button>
       </form>
-
       <div className="login-footer">
         <p>New to HelpHome? Accounts are created during pilot onboarding.</p>
       </div>

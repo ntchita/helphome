@@ -10,71 +10,74 @@ interface Worker {
   wellnessMatch?: number;
   wellnessMatchScore?: number;
 }
+
+interface ClientProfile {
+  id: string;
+  interests: string[];
+  needs: string[];
+}
+
 interface BookingMessage { text: string; type: 'success' | 'error' | 'info'; }
 
 export default function Dashboard() {
   const [workers, setWorkers] = useState<Worker[]>([]);
+  const [clientProfile, setClientProfile] = useState<ClientProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [bookingStatus, setBookingStatus] = useState<{ [key: number]: 'sending' | 'success' | 'error' | null }>({});
   const [messages, setMessages] = useState<{ [key: number]: BookingMessage | null }>({});
 
-  const clientProfile = {
-    interests: ['dogs', 'music', 'outdoors'],
-    needs: ['Personal Care', 'Companionship']
-  };
-
   useEffect(() => {
-    const fetchWorkers = async () => {
-      try {
-        const response = await fetch('/api/workers');
-        if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
-        const data = await response.json();
-        setWorkers(data);
+    Promise.all([
+      fetch('/api/workers').then((r) => r.json()),
+      fetch('/api/client-profile').then((r) => r.json()),
+    ])
+      .then(([w, p]) => {
+        setWorkers(w);
+        setClientProfile(p);
         setError(null);
-      } catch (err: any) {
-        console.error('❌ Failed to fetch workers:', err);
+      })
+      .catch((err: any) => {
+        console.error('❌ Failed to fetch dashboard data:', err);
         setError(err.message);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchWorkers();
+      })
+      .finally(() => setLoading(false));
   }, []);
 
-  const handleBookNow = async (workerId: number, workerName: string, matchScore?: number) => {
-    setBookingStatus(prev => ({ ...prev, [workerId]: 'sending' }));
-    setMessages(prev => ({ ...prev, [workerId]: null }));
+  const scoreOf = (w: Worker) => w.wellnessMatch ?? w.wellnessMatchScore;
+
+  const getMatchReason = (worker: Worker) => {
+    const score = scoreOf(worker);
+    if (score === undefined || score === 0) return 'Standard availability';
+    const commonInterests = worker.interests.filter((i) => clientProfile?.interests.includes(i));
+    if (commonInterests.length > 0) return `Matched on: ${commonInterests.join(', ')}`;
+    return 'High skill compatibility';
+  };
+
+  const handleBookNow = async (worker: Worker) => {
+    const score = scoreOf(worker);
+    setBookingStatus(prev => ({ ...prev, [worker.id]: 'sending' }));
+    setMessages(prev => ({ ...prev, [worker.id]: null }));
     try {
-      const clientId = localStorage.getItem('userId') || `guest-user-${Date.now()}`;
+      const clientId = clientProfile?.id || localStorage.getItem('userId') || `guest-user-${Date.now()}`;
       if (!localStorage.getItem('userId')) localStorage.setItem('userId', clientId);
       const response = await fetch('/api/bookings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ clientId, workerId, serviceType: 'Standard Support', timestamp: new Date().toISOString() }),
+        body: JSON.stringify({ clientId, workerId: worker.id, serviceType: 'Standard Support', timestamp: new Date().toISOString() }),
       });
       if (!response.ok) throw new Error('Booking failed');
       const result = await response.json();
-      setBookingStatus(prev => ({ ...prev, [workerId]: 'success' }));
+      setBookingStatus(prev => ({ ...prev, [worker.id]: 'success' }));
       setMessages(prev => ({
         ...prev,
-        [workerId]: { text: `✅ Request sent to ${workerName}! (Wellness Match: ${result.matchScore ?? matchScore ?? 0}%)`, type: 'success' }
+        [worker.id]: { text: `✅ Request sent to ${worker.name}! (Wellness Match: ${result.matchScore ?? score ?? 0}%)`, type: 'success' }
       }));
     } catch (err: any) {
       console.error('❌ Booking error:', err);
-      setBookingStatus(prev => ({ ...prev, [workerId]: 'error' }));
-      setMessages(prev => ({ ...prev, [workerId]: { text: 'Failed to send request. Try again.', type: 'error' } }));
+      setBookingStatus(prev => ({ ...prev, [worker.id]: 'error' }));
+      setMessages(prev => ({ ...prev, [worker.id]: { text: 'Failed to send request. Try again.', type: 'error' } }));
     }
-  };
-
-  const matchOf = (w: Worker) => w.wellnessMatch ?? w.wellnessMatchScore;
-
-  const getMatchReason = (worker: Worker) => {
-    const score = matchOf(worker);
-    if (score === undefined || score === 0) return 'Standard availability';
-    const commonInterests = worker.interests.filter(i => clientProfile.interests.includes(i));
-    if (commonInterests.length > 0) return `Matched on: ${commonInterests.join(', ')}`;
-    return 'High skill compatibility';
   };
 
   if (loading) return <div className="card">Loading support workers...</div>;
@@ -84,7 +87,7 @@ export default function Dashboard() {
     <div className="page">
       <header className="hero">
         <h1>Better Care. Perfect Matches. Zero Agency Delays.</h1>
-		<p>Connect directly with verified local workers matched to your goals and interests, not just their availability.</p>
+        <p>Connect directly with verified local workers matched to your goals and interests, not just their availability.</p>
         <div className="hero-stats">
           <div className="stat-chip"><strong>100%</strong><span>Direct Care</span></div>
           <div className="stat-chip"><strong>Instant</strong><span>Confirmation</span></div>
@@ -132,7 +135,7 @@ export default function Dashboard() {
           {workers.map((worker) => {
             const status = bookingStatus[worker.id];
             const message = messages[worker.id];
-            const score = matchOf(worker);
+            const score = scoreOf(worker);
             return (
               <article key={worker.id} className="card worker-card">
                 <div>
@@ -151,7 +154,7 @@ export default function Dashboard() {
                   {message && <div className={`flash ${message.type}`}>{message.text}</div>}
                   <button
                     className={`btn btn-block ${status === 'success' ? 'btn-success' : ''} ${status === 'error' ? 'btn-danger' : ''}`}
-                    onClick={() => handleBookNow(worker.id, worker.name, score)}
+                    onClick={() => handleBookNow(worker)}
                     disabled={status === 'sending'}
                   >
                     {status === 'sending' ? 'Sending...' :

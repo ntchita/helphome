@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 interface RosterWorker {
   id: string;
@@ -10,12 +10,6 @@ interface RosterWorker {
   lastCheckin: string;
 }
 
-const ROSTER: RosterWorker[] = [
-  { id: 'jane', name: 'Jane Doe', role: 'Support Worker · Personal Care', capacity: { booked: 22, total: 30 }, availability: 'Sat, Sun', checkins: [7, 8, 6, 7], lastCheckin: 'Today' },
-  { id: 'sarah', name: 'Sarah Lee', role: 'Support Worker · Community Access', capacity: { booked: 18, total: 30 }, availability: 'Mon, Wed, Sat', checkins: [8, 7, 8, 8], lastCheckin: 'Yesterday' },
-  { id: 'john', name: 'John Smith', role: 'Support Worker · Transport', capacity: { booked: 24, total: 30 }, availability: 'No openings this week', checkins: [5, 4, 6, 5], lastCheckin: '2 days ago' },
-];
-
 const statusOf = (checkins: number[]) => {
   const avg = checkins.reduce((a, b) => a + b, 0) / checkins.length;
   if (avg >= 7.5) return { label: 'Thriving', cls: 'wb-thriving' };
@@ -24,23 +18,39 @@ const statusOf = (checkins: number[]) => {
 };
 
 export default function ManagerHub() {
+  const [roster, setRoster] = useState<RosterWorker[]>([]);
+  const [loading, setLoading] = useState(true);
   const [chat, setChat] = useState<{ [id: string]: boolean }>({});
-  const flags = ROSTER.filter((w) => statusOf(w.checkins).cls === 'wb-atrisk').length;
+  const [scheduling, setScheduling] = useState<{ [id: string]: boolean }>({});
 
-  const schedule = (id: string, name: string) => {
+  useEffect(() => {
+    fetch('/api/roster')
+      .then((r) => r.json())
+      .then((data) => setRoster(data))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const schedule = async (id: string) => {
+    setScheduling((prev) => ({ ...prev, [id]: true }));
+    await fetch(`/api/roster/${id}/welfare-chat`, { method: 'POST' });
     setChat((prev) => ({ ...prev, [id]: true }));
+    setScheduling((prev) => ({ ...prev, [id]: false }));
   };
+
+  if (loading) return <div className="card">Loading roster...</div>;
+
+  const flags = roster.filter((w) => statusOf(w.checkins).cls === 'wb-atrisk').length;
 
   return (
     <div className="page worker-hub-page">
       <header className="hub-header">
         <h1>Manager Hub</h1>
         <p className="hub-note">Representative manager view — pilot data.</p>
-        <p className="hub-sub">{ROSTER.length} assigned workers · {flags} wellbeing flag{flags === 1 ? '' : 's'} this week</p>
+        <p className="hub-sub">{roster.length} assigned workers · {flags} wellbeing flag{flags === 1 ? '' : 's'} this week</p>
       </header>
 
       <section className="hub-grid">
-        {ROSTER.map((w) => {
+        {roster.map((w) => {
           const pct = Math.round((w.capacity.booked / w.capacity.total) * 100);
           const st = statusOf(w.checkins);
           return (
@@ -61,7 +71,9 @@ export default function ManagerHub() {
               <p className="roster-line"><strong>Last check-in:</strong> {w.lastCheckin}</p>
               <p className="hub-explain">Wellbeing status derives from confidential check-ins — managers see the status, never the answers.</p>
               {chat[w.id] && <div className="flash success">✓ Welfare chat scheduled — {w.name} notified (demo)</div>}
-              <button className="btn secondary" onClick={() => schedule(w.id, w.name)}>Schedule welfare chat</button>
+              <button className="btn secondary" onClick={() => schedule(w.id)} disabled={scheduling[w.id]}>
+                {scheduling[w.id] ? 'Scheduling...' : 'Schedule welfare chat'}
+              </button>
             </article>
           );
         })}

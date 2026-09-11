@@ -1,49 +1,63 @@
-const WELLNESS_TREND = [
-  { day: 'Mon', score: 6.2 },
-  { day: 'Tue', score: 6.5 },
-  { day: 'Wed', score: 6.4 },
-  { day: 'Thu', score: 6.8 },
-  { day: 'Fri', score: 7.1 },
-  { day: 'Sat', score: 7.0 },
-  { day: 'Sun', score: 7.4 },
-];
+import { useEffect, useState } from 'react';
 
-const BOOKING_STATUS = [
-  { label: 'Accepted', value: 3, color: '#00D68F' },
-  { label: 'Pending', value: 1, color: '#F39C12' },
-  { label: 'Declined', value: 2, color: '#DC3545' },
-];
-
-const REVENUE = [
-  { month: 'Apr', amount: 420 },
-  { month: 'May', amount: 610 },
-  { month: 'Jun', amount: 580 },
-  { month: 'Jul', amount: 760 },
-  { month: 'Aug', amount: 940 },
-  { month: 'Sep', amount: 1180 },
-];
+interface TrendPoint { day: string; score: number; }
+interface StatusSlice { label: string; value: number; color: string; }
+interface RevenuePoint { month: string; amount: number; }
 
 const fmt = (n: number) => (n >= 1000 ? `$${(n / 1000).toFixed(1)}k` : `$${n}`);
 
 export default function AdminCharts() {
+  const [trend, setTrend] = useState<TrendPoint[]>([]);
+  const [status, setStatus] = useState<StatusSlice[]>([]);
+  const [revenue, setRevenue] = useState<RevenuePoint[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    Promise.all([
+      fetch('/api/charts/trend').then((r) => r.json()),
+      fetch('/api/charts/status').then((r) => r.json()),
+      fetch('/api/charts/revenue').then((r) => r.json()),
+    ])
+      .then(([t, s, rv]) => {
+        setTrend(t);
+        setStatus(s);
+        setRevenue(rv);
+      })
+      .catch((err) => console.error('❌ Failed to fetch charts:', err))
+      .finally(() => setLoading(false));
+  }, []);
+
+  if (loading) {
+    return (
+      <section className="charts-grid">
+        <article className="chart-card">
+          <p className="hub-explain">Loading charts…</p>
+        </article>
+      </section>
+    );
+  }
+
   const W = 320, H = 170;
   const min = 5.5, max = 8;
-  const px = (i: number) => 20 + (i * (W - 40)) / (WELLNESS_TREND.length - 1);
+  const px = (i: number) => 20 + (i * (W - 40)) / Math.max(trend.length - 1, 1);
   const py = (s: number) => 150 - ((s - min) / (max - min)) * 120;
-  const pts = WELLNESS_TREND.map((d, i) => `${px(i)},${py(d.score)}`).join(' ');
-  const area = `M${px(0)},150 L${WELLNESS_TREND.map((d, i) => `${px(i)},${py(d.score)}`).join(' L')} L${px(WELLNESS_TREND.length - 1)},150 Z`;
+  const pts = trend.map((d, i) => `${px(i)},${py(d.score)}`).join(' ');
+  const area = `M${px(0)},150 L${trend.map((d, i) => `${px(i)},${py(d.score)}`).join(' L')} L${px(trend.length - 1)},150 Z`;
 
-  const totalBookings = BOOKING_STATUS.reduce((a, b) => a + b.value, 0);
+  const totalBookings = status.reduce((a, b) => a + b.value, 0);
   const C = 2 * Math.PI * 54;
   let cum = 0;
-  const segs = BOOKING_STATUS.map((s) => {
-    const frac = s.value / totalBookings;
+  const segs = status.map((s) => {
+    const frac = totalBookings ? s.value / totalBookings : 0;
     const seg = { ...s, frac, offset: cum };
     cum += frac;
     return seg;
   });
+  const accepted = status.find((s) => s.label === 'Accepted')?.value ?? 0;
+  const acceptancePct = totalBookings ? Math.round((accepted / totalBookings) * 100) : 0;
 
-  const maxRev = Math.max(...REVENUE.map((r) => r.amount));
+  const maxRev = Math.max(...revenue.map((r) => r.amount), 1);
+  const trendDelta = trend.length ? (trend[trend.length - 1].score - trend[0].score).toFixed(1) : '0.0';
 
   return (
     <section className="charts-grid">
@@ -59,16 +73,16 @@ export default function AdminCharts() {
           </defs>
           <path d={area} fill="url(#wellGrad)" className="chart-area" />
           <polyline points={pts} fill="none" stroke="#00A876" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="chart-line" />
-          {WELLNESS_TREND.map((d, i) => (
+          {trend.map((d, i) => (
             <circle key={d.day} cx={px(i)} cy={py(d.score)} r="4" fill="#fff" stroke="#00A876" strokeWidth="2.5">
               <title>{`${d.day}: ${d.score}/10`}</title>
             </circle>
           ))}
-          {WELLNESS_TREND.map((d, i) => (
+          {trend.map((d, i) => (
             <text key={`${d.day}-l`} x={px(i)} y={H - 4} textAnchor="middle" className="chart-axis">{d.day}</text>
           ))}
         </svg>
-        <p className="chart-foot">↑ +1.2 pts this week — welfare chat with John Smith scheduled</p>
+        <p className="chart-foot">↑ +{trendDelta} pts this week — welfare chat with John Smith scheduled</p>
       </article>
 
       <article className="chart-card">
@@ -89,7 +103,7 @@ export default function AdminCharts() {
             <text x="70" y="84" textAnchor="middle" className="donut-sub">bookings</text>
           </svg>
           <ul className="donut-legend">
-            {BOOKING_STATUS.map((s) => (
+            {status.map((s) => (
               <li key={s.label}>
                 <span className="legend-dot" style={{ background: s.color }} />
                 {s.label} <strong>{s.value}</strong>
@@ -97,7 +111,7 @@ export default function AdminCharts() {
             ))}
           </ul>
         </div>
-        <p className="chart-foot">67% acceptance — declined requests auto re-matched, no penalty</p>
+        <p className="chart-foot">{acceptancePct}% acceptance — declined requests auto re-matched, no penalty</p>
       </article>
 
       <article className="chart-card">
@@ -110,7 +124,7 @@ export default function AdminCharts() {
               <stop offset="100%" stopColor="#0087C2" />
             </linearGradient>
           </defs>
-          {REVENUE.map((r, i) => {
+          {revenue.map((r, i) => {
             const h = (r.amount / maxRev) * 120;
             const x = 18 + i * 50;
             return (

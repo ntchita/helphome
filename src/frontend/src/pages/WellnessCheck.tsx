@@ -13,24 +13,27 @@ export default function WellnessCheck() {
   const [score, setScore] = useState(5);
   const [notes, setNotes] = useState('');
   const [submitted, setSubmitted] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
 
   const meta = CHECK_META[logType];
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const token = localStorage.getItem('token');
+    setSaving(true);
+    setError('');
     try {
-      await fetch('/api/wellness', {
+      const res = await fetch('/api/wellness', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ logType, score, notes }),
       });
+      if (!res.ok) throw new Error('Server rejected the check-in');
       setSubmitted(true);
-    } catch (err) {
-      alert('Failed to submit wellness check');
+    } catch {
+      setError('Cannot reach the server. Is the API running?');
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -53,6 +56,7 @@ export default function WellnessCheck() {
   return (
     <div className="wellness-check-page">
       <h1>Wellness Check-In</h1>
+      {error && <div className="flash error">{error}</div>}
       <form onSubmit={handleSubmit}>
         <div>
           <label>This check-in is about:</label>
@@ -85,7 +89,7 @@ export default function WellnessCheck() {
             rows={4}
           />
         </div>
-        <button type="submit">Submit Check-In</button>
+        <button type="submit" disabled={saving}>{saving ? 'Saving...' : 'Submit Check-In'}</button>
       </form>
       <div className="resources">
         <h2>Need Support?</h2>

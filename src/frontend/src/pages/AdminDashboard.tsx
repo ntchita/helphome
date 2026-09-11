@@ -1,25 +1,39 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 interface QueueWorker { id: number; name: string; checks: string; status: 'pending' | 'verified'; }
-
-const INITIAL_QUEUE: QueueWorker[] = [
-  { id: 1, name: 'Jane Doe', checks: 'NDIS Worker Screening · Police check · References', status: 'verified' },
-  { id: 2, name: 'Sarah Lee', checks: 'NDIS Worker Screening · Police check', status: 'verified' },
-  { id: 3, name: 'John Smith', checks: 'NDIS Worker Screening · References', status: 'pending' },
-];
-
-const ACTIVITY = [
-  'Jane Doe accepted a booking request — Thu 9:00',
-  'Sarah Lee submitted a wellness check (4/5) — Wed',
-  'New worker application received: John Smith — Mon',
-];
+interface PlatformStat { value: string; label: string; }
 
 export default function AdminDashboard() {
-  const [queue, setQueue] = useState(INITIAL_QUEUE);
+  const [queue, setQueue] = useState<QueueWorker[]>([]);
+  const [activity, setActivity] = useState<string[]>([]);
+  const [stats, setStats] = useState<PlatformStat[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const toggle = (id: number) => {
-    setQueue(prev => prev.map(w => w.id === id ? { ...w, status: w.status === 'verified' ? 'pending' : 'verified' } : w));
+  useEffect(() => {
+    Promise.all([
+      fetch('/api/verification').then((r) => r.json()),
+      fetch('/api/verification/activity').then((r) => r.json()),
+      fetch('/api/verification/stats').then((r) => r.json()),
+    ])
+      .then(([q, a, s]) => {
+        setQueue(q);
+        setActivity(a);
+        setStats(s);
+      })
+      .finally(() => setLoading(false));
+  }, []);
+
+  const toggle = async (id: number) => {
+    try {
+      const res = await fetch(`/api/verification/${id}/toggle`, { method: 'POST' });
+      const updated = await res.json();
+      setQueue((prev) => prev.map((w) => (w.id === updated.id ? updated : w)));
+    } catch {
+      console.error('❌ Failed to toggle verification');
+    }
   };
+
+  if (loading) return <div className="card">Loading verification queue...</div>;
 
   return (
     <div className="page admin-page">
@@ -31,15 +45,15 @@ export default function AdminDashboard() {
       <section className="hub-grid">
         <article className="card hub-card">
           <h3>Platform overview</h3>
-          <p className="admin-stat"><strong>3</strong> active support workers</p>
-          <p className="admin-stat"><strong>2</strong> bookings this week</p>
-          <p className="admin-stat"><strong>4</strong> wellness check-ins this week</p>
+          {stats.map((s, i) => (
+            <p className="admin-stat" key={i}><strong>{s.value}</strong> {s.label}</p>
+          ))}
           <p className="hub-explain">Pilot-scale numbers. Post-pilot this reads from the live database.</p>
         </article>
 
         <article className="card hub-card">
           <h3>Verification queue</h3>
-          {queue.map(w => (
+          {queue.map((w) => (
             <div className="queue-row" key={w.id}>
               <div>
                 <p className="queue-name">{w.name} <span className={`status ${w.status}`}>{w.status}</span></p>
@@ -55,7 +69,7 @@ export default function AdminDashboard() {
         <article className="card hub-card">
           <h3>Recent activity</h3>
           <ul className="activity-list">
-            {ACTIVITY.map((line, i) => <li key={i}>{line}</li>)}
+            {activity.map((line, i) => <li key={i}>{line}</li>)}
           </ul>
         </article>
       </section>

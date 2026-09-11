@@ -1,18 +1,17 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 
 type Door = 'client' | 'worker' | 'coordinator' | null;
 
-const INTERESTS = ['Dogs', 'Music', 'Outdoors', 'Art', 'Fitness', 'Cooking', 'Reading', 'Gardening'];
+interface RegWorker {
+  id: number;
+  name: string;
+  role: string;
+  bio: string;
+  interests: string[];
+}
 
-interface WorkerSeed { id: string; name: string; interests: string[]; role: string; bio: string; }
-const WORKER_SEED: WorkerSeed[] = [
-  { id: '1', name: 'Jane Doe', interests: ['dogs', 'music', 'outdoors'], role: 'Personal Care', bio: 'Experienced support worker who loves animals.' },
-  { id: '2', name: 'Sarah Lee', interests: ['music', 'art', 'reading'], role: 'Community Access', bio: 'Artist at heart, love cultural outings.' },
-  { id: '3', name: 'John Smith', interests: ['fitness', 'outdoors', 'cooking'], role: 'Transport', bio: 'Former coach, great for active clients.' },
-];
-
-const matchPct = (picked: string[], worker: WorkerSeed) => {
+const matchPct = (picked: string[], worker: RegWorker) => {
   if (!picked.length) return 0;
   const overlap = picked.filter((i) => worker.interests.includes(i.toLowerCase())).length;
   return Math.round((overlap / picked.length) * 100);
@@ -30,6 +29,24 @@ export default function Register() {
   const [done, setDone] = useState(false);
   const [error, setError] = useState('');
 
+  const [workers, setWorkers] = useState<RegWorker[]>([]);
+  const [interests, setInterests] = useState<string[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    Promise.all([
+      fetch('/api/workers').then((r) => r.json()),
+      fetch('/api/interests').then((r) => r.json()),
+    ])
+      .then(([w, i]) => {
+        setWorkers(w);
+        setInterests(i);
+      })
+      .catch(() => setError('Cannot reach the server. Is the API running?'))
+      .finally(() => setLoading(false));
+  }, []);
+
   const toggle = (i: string) =>
     setPicked((prev) => (prev.includes(i) ? prev.filter((x) => x !== i) : [...prev, i]));
 
@@ -39,18 +56,39 @@ export default function Register() {
 
   const backToDoors = () => { setDoor(null); resetForm(); };
 
-  const submit = (e: React.FormEvent, requireInterests = false) => {
+  const submit = async (e: React.FormEvent, requireInterests = false) => {
     e.preventDefault();
     if (password.length < 8) { setError('Password must be at least 8 characters.'); return; }
     if (password !== confirm) { setError('Passwords do not match.'); return; }
     if (requireInterests && picked.length === 0) { setError('Pick at least one interest so we can match you.'); return; }
     setError('');
-    setDone(true);
+    setSaving(true);
+    try {
+      await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ door, name, email, orgName: org || undefined, interests: picked }),
+      });
+      setDone(true);
+    } catch {
+      setError('Cannot reach the server. Is the API running?');
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const ranked = [...WORKER_SEED].map((w) => ({ ...w, pct: matchPct(picked, w) })).sort((a, b) => b.pct - a.pct);
+  const ranked = [...workers].map((w) => ({ ...w, pct: matchPct(picked, w) })).sort((a, b) => b.pct - a.pct);
 
   if (done && door === 'client') {
+    if (loading) {
+      return (
+        <div className="register-page" style={{ textAlign: 'center', padding: '4rem 0' }}>
+          <h2>Finding your perfect matches...</h2>
+          <p className="lead">Please wait a moment while we search our verified workers.</p>
+        </div>
+      );
+    }
+
     return (
       <div className="register-page">
         <h1>Welcome to HelpHome, {name || 'there'}!</h1>
@@ -114,13 +152,17 @@ export default function Register() {
           <div><label>Confirm password</label><input type="password" value={confirm} onChange={(e) => setConfirm(e.target.value)} placeholder="Re-enter password" required /></div>
           <div>
             <label>What matters to you? (pick any)</label>
-            <div className="interest-chips">
-              {INTERESTS.map((i) => (
-                <button type="button" key={i} className={`chip ${picked.includes(i) ? 'active' : ''}`} onClick={() => toggle(i)}>{i}</button>
-              ))}
-            </div>
+            {loading ? (
+              <p className="hub-explain">Loading interests…</p>
+            ) : (
+              <div className="interest-chips">
+                {interests.map((i) => (
+                  <button type="button" key={i} className={`chip ${picked.includes(i) ? 'active' : ''}`} onClick={() => toggle(i)}>{i}</button>
+                ))}
+              </div>
+            )}
           </div>
-          <button type="submit" className="btn btn-block">Find my matches</button>
+          <button type="submit" className="btn btn-block" disabled={saving}>{saving ? 'Saving...' : 'Find my matches'}</button>
         </form>
       </div>
     );
@@ -149,7 +191,7 @@ export default function Register() {
           <div><label>NDIS Worker Screening Check</label>
             <select required defaultValue=""><option value="" disabled>Select…</option><option>Already hold one</option><option>Willing to obtain one</option></select>
           </div>
-          <button type="submit" className="btn btn-block">Start verification</button>
+          <button type="submit" className="btn btn-block" disabled={saving}>{saving ? 'Saving...' : 'Start verification'}</button>
         </form>
       </div>
     );
@@ -168,7 +210,7 @@ export default function Register() {
           <div><label>Email</label><input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@organisation.com" required /></div>
           <div><label>Password</label><input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Min 8 characters" required /></div>
           <div><label>Confirm password</label><input type="password" value={confirm} onChange={(e) => setConfirm(e.target.value)} placeholder="Re-enter password" required /></div>
-          <button type="submit" className="btn btn-block">Join the coordinator waitlist</button>
+          <button type="submit" className="btn btn-block" disabled={saving}>{saving ? 'Saving...' : 'Join the coordinator waitlist'}</button>
         </form>
         <p className="hub-explain">Five fields. Hireup asks providers twelve to say maybe.</p>
       </div>

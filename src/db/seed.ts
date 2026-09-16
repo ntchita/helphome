@@ -1,6 +1,6 @@
 import { eq } from 'drizzle-orm';
 import type { PgliteDatabase } from 'drizzle-orm/pglite';
-import * as s from './schema';
+import * as s from './schema.ts';
 
 export async function seed(db: PgliteDatabase<typeof s>) {
   const [existing] = await db.select().from(s.tenants).limit(1);
@@ -11,19 +11,19 @@ export async function seed(db: PgliteDatabase<typeof s>) {
   }).returning();
 
   const [admin] = await db.insert(s.users).values({
-    email: 'admin@helphome.au', role: 'admin', fullName: 'Nikolai Tchitachvili', mfaEnabled: true,
+    email: 'admin@helphome.au', passwordHash: 'test', role: 'admin', fullName: 'Nikolai Tchitachvili', mfaEnabled: true,
   }).returning();
 
   const [coordinator] = await db.insert(s.users).values({
-    tenantId: tenant.id, email: 'tonia@helphome.au', role: 'coordinator', fullName: 'Tonia Fridlis', mfaEnabled: true,
+    tenantId: tenant.id, email: 'tonia@helphome.au', passwordHash: 'test', role: 'coordinator', fullName: 'Tonia Fridlis', mfaEnabled: true,
   }).returning();
 
   const [workerUser] = await db.insert(s.users).values({
-    tenantId: tenant.id, email: 'sarah@helphome.au', role: 'worker', fullName: 'Sarah Johnson',
+    tenantId: tenant.id, email: 'sarah@helphome.au', passwordHash: 'test', role: 'worker', fullName: 'Sarah Johnson',
   }).returning();
 
   const [clientUser] = await db.insert(s.users).values({
-    tenantId: tenant.id, email: 'jane@helphome.au', role: 'client', fullName: 'Jane Doe',
+    tenantId: tenant.id, email: 'jane@helphome.au', passwordHash: 'test', role: 'client', fullName: 'Jane Doe',
   }).returning();
 
   const [worker] = await db.insert(s.workerProfiles).values({

@@ -1,12 +1,14 @@
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
+import { eq } from 'drizzle-orm';
+import { getDb, schema } from '../db/connection.ts';
 import { calculateWellnessMatch, rankWorkers } from './utils/matcher.ts';
 
 const app = new Hono();
 
 // Enable CORS for frontend
 app.use('/*', cors({
-  origin: ['http://localhost:5173', 'http://127.0.0.1:5173', 'https://helphome-app.pages.dev', 'https://helphome.au', 'https://www.helphome.au'],
+  origin: ['http://localhost:5173', 'http://127.0.0.1:5173', 'https://helphome-app.pages.dev'],
   allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowHeaders: ['Content-Type', 'Authorization'],
   credentials: true,
@@ -15,7 +17,6 @@ app.use('/*', cors({
 // =====================================================================
 // SINGLE SOURCE OF TRUTH (All data unified here)
 // =====================================================================
-
 // 1. UNIFIED WORKERS (Source for Dashboard, Register, ManagerHub, Verification)
 const workers = [
   {
@@ -124,21 +125,7 @@ const revenue = [
   { month: 'Jul', amount: 760 }, { month: 'Aug', amount: 940 }, { month: 'Sep', amount: 1180 },
 ];
 
-// 7. AUTH & STUBS
-const accounts: Record<string, { role: string; password: string }> = {
-  'client@test.com': { role: 'client', password: 'test' },
-  'worker@test.com': { role: 'worker', password: 'test' },
-  'manager@test.com': { role: 'manager', password: 'test' },
-  'admin@test.com': { role: 'admin', password: 'test' },
-};
-
-const demoAccounts = [
-  { label: 'Client', email: 'client@test.com' },
-  { label: 'Worker', email: 'worker@test.com' },
-  { label: 'Manager', email: 'manager@test.com' },
-  { label: 'Admin', email: 'admin@test.com' },
-];
-
+// 7. STUBS
 const signups: any[] = [];
 const clientWellnessLogs: any[] = [];
 const welfareChats: Record<string, boolean> = {};
@@ -146,7 +133,6 @@ const welfareChats: Record<string, boolean> = {};
 // =====================================================================
 // ROUTES
 // =====================================================================
-
 app.get('/', (c) => c.json({ message: 'HelpHome API Active', version: '2.0.0' }));
 
 // --- Workers & Matching ---
@@ -168,6 +154,7 @@ app.get('/api/client-profile', (c) => c.json(clientProfile));
 
 // --- Bookings & Requests ---
 app.get('/api/bookings', (c) => c.json(bookings));
+
 app.post('/api/bookings', async (c) => {
   const body = await c.req.json();
   const worker = workers.find((w) => w.id === Number(body.workerId));
@@ -198,6 +185,7 @@ app.get('/api/requests', (c) => c.json(clientRequests));
 // --- Worker Hub ---
 app.get('/api/worker-hub', (c) => c.json(workerHub));
 app.get('/api/checkins', (c) => c.json(checkinHistory));
+
 app.post('/api/checkins', async (c) => {
   const body = await c.req.json();
   const entry = { day: 'Today', score: Number(body.score) };
@@ -209,6 +197,7 @@ app.post('/api/checkins', async (c) => {
   }
   return c.json({ ok: true, entry }, 201);
 });
+
 app.post('/api/worker-hub/decision', async (c) => {
   const body = await c.req.json();
   workerHub.request.status = body.decision === 'accept' ? 'accepted' : 'declined';
@@ -220,6 +209,7 @@ app.get('/api/roster', (c) => c.json(workers.map((w) => ({
   id: String(w.id), name: w.name, role: `Support Worker · ${w.role}`, capacity: w.capacity,
   availability: w.availability, checkins: [...w.checkins], lastCheckin: w.lastCheckin,
 }))));
+
 app.post('/api/roster/:id/welfare-chat', (c) => {
   welfareChats[c.req.param('id')] = true;
   return c.json({ ok: true });
@@ -230,7 +220,6 @@ app.get('/api/admin/kpis', (c) => {
   const accepted = clientRequests.filter((r) => r.status === 'accepted').length;
   const total = clientRequests.length;
   const acceptancePct = total ? Math.round((accepted / total) * 100) : 0;
-  
   return c.json(kpis.map((k) => {
     if (k.label === 'Acceptance rate') {
       return { ...k, value: `${acceptancePct}%`, trend: `${accepted} of ${total} accepted`, up: acceptancePct >= 60 };
@@ -241,20 +230,23 @@ app.get('/api/admin/kpis', (c) => {
     return k;
   }));
 });
+
 app.get('/api/admin/alerts', (c) => c.json(alerts));
+
 app.post('/api/admin/alerts/:id/dismiss', (c) => {
   const alert = alerts.find((a) => a.id === Number(c.req.param('id')));
   if (alert) alert.dismissed = true;
   return c.json({ ok: true });
 });
+
 app.get('/api/admin/activity', (c) => c.json(activity));
 app.get('/api/admin/people', (c) => c.json(people));
+
 app.get('/api/admin/health', (c) => {
   const accepted = clientRequests.filter((r) => r.status === 'accepted').length;
   const total = clientRequests.length;
   const acceptancePct = total ? Math.round((accepted / total) * 100) : 0;
   const avgCapacity = Math.round(workers.reduce((a, w) => a + Math.round((w.capacity.booked / w.capacity.total) * 100), 0) / workers.length);
-  
   return c.json(platformHealth.map((h) => {
     if (h.label === 'Worker capacity') return { ...h, pct: avgCapacity };
     if (h.label === 'Booking acceptance') return { ...h, pct: acceptancePct, warn: acceptancePct < 60 };
@@ -264,41 +256,54 @@ app.get('/api/admin/health', (c) => {
 
 // --- Charts ---
 app.get('/api/charts/trend', (c) => c.json(wellnessTrend));
+
 app.get('/api/charts/status', (c) => c.json([
   { label: 'Accepted', value: clientRequests.filter((r) => r.status === 'accepted').length, color: '#00D68F' },
   { label: 'Pending', value: clientRequests.filter((r) => r.status === 'pending').length, color: '#F39C12' },
   { label: 'Declined', value: clientRequests.filter((r) => r.status === 'declined').length, color: '#DC3545' },
 ]));
+
 app.get('/api/charts/revenue', (c) => c.json(revenue));
 
 // --- Verification Queue (Derived from unified workers) ---
 app.get('/api/verification', (c) => c.json(workers.map((w) => ({
   id: w.id, name: w.name, checks: w.checks, status: w.verificationStatus,
 }))));
+
 app.post('/api/verification/:id/toggle', (c) => {
   const worker = workers.find((w) => w.id === Number(c.req.param('id')));
   if (!worker) return c.json({ success: false, message: 'Worker not found' }, 404);
   worker.verificationStatus = worker.verificationStatus === 'verified' ? 'pending' : 'verified';
   return c.json({ id: worker.id, name: worker.name, checks: worker.checks, status: worker.verificationStatus });
 });
+
 app.get('/api/verification/activity', (c) => c.json([
   'Jane Doe accepted a booking request — Thu 9:00',
   'Sarah Lee submitted a wellness check (4/5) — Wed',
   'New worker application received: John Smith — Mon',
 ]));
+
 app.get('/api/verification/stats', (c) => c.json([
   { value: String(workers.length), label: 'active support workers' },
   { value: String(bookings.length), label: 'bookings this week' },
   { value: String(checkinHistory.length), label: 'wellness check-ins this week' },
 ]));
 
-// --- Auth ---
-app.get('/api/demo-accounts', (c) => c.json(demoAccounts));
+// --- Auth (DB-backed) ---
+app.get('/api/demo-accounts', async (c) => {
+  const db = await getDb();
+  const rows = await db.select({ email: schema.users.email, role: schema.users.role }).from(schema.users);
+  const labels: Record<string, string> = { client: 'Client', worker: 'Worker', coordinator: 'Coordinator', admin: 'Admin' };
+  return c.json(rows.map((r) => ({ label: labels[r.role], email: r.email })));
+});
+
 app.post('/api/login', async (c) => {
+  const db = await getDb();
   const body = await c.req.json();
-  const account = accounts[body.email];
-  if (account && account.password === body.password) return c.json({ ok: true, role: account.role });
-  return c.json({ ok: false }, 401);
+  const [user] = await db.select().from(schema.users).where(eq(schema.users.email, body.email)).limit(1);
+  if (!user || user.passwordHash !== body.password) return c.json({ ok: false }, 401);
+  await db.update(schema.users).set({ lastLogin: new Date() }).where(eq(schema.users.id, user.id));
+  return c.json({ ok: true, role: user.role });
 });
 
 // --- Stubs ---
@@ -307,6 +312,7 @@ app.post('/api/auth/register', async (c) => {
   signups.push({ id: signups.length + 1, ...body, createdAt: new Date().toISOString() });
   return c.json({ success: true, message: 'Registered (pilot waitlist)' }, 201);
 });
+
 app.post('/api/wellness', async (c) => {
   const body = await c.req.json();
   clientWellnessLogs.push({ id: clientWellnessLogs.length + 1, ...body, at: new Date().toISOString() });

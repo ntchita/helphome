@@ -1,8 +1,8 @@
 import { PGlite } from '@electric-sql/pglite';
 import { drizzle, type PgliteDatabase } from 'drizzle-orm/pglite';
 import { migrate } from 'drizzle-orm/pglite/migrator';
-import * as schema from './schema';
-import { seed } from './seed';
+import * as schema from './schema.ts';
+import { seed } from './seed.ts';
 
 let db: PgliteDatabase<typeof schema> | undefined;
 

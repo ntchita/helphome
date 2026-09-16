@@ -1,11 +1,7 @@
-import type { Config } from 'drizzle-kit';
+import { defineConfig } from 'drizzle-kit';
 
-export default {
+export default defineConfig({
+  dialect: 'postgresql',
   schema: './src/db/schema.ts',
   out: './drizzle',
-  driver: 'd1',
-  dbCredentials: {
-    wranglerConfigPath: './wrangler.toml',
-    dbName: 'helphome-db',
-  },
-} satisfies Config;
+});

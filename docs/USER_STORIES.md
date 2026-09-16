@@ -1,42 +1,43 @@
-# Helphome User Stories
-Updated: 11 September 2026 — status column reflects the current pilot demo.
-Status key: [PILOT] = working in the demo today · [POST] = post-pilot build · [WON'T] = out of scope
+# HelpWork User Stories v3
+Status key: [PILOT] working in demo · [NEW] to build · [POST] later · [VC] VisualCare-owned
 
-## Epic 1: Onboarding & Verification
-- US1.1 As a Client, I want to register with my email and NDIS number so I can access the platform. [PILOT — lead captured server-side; NDIS number field post-pilot]
-- US1.2 As a Worker, I want to upload my police check and qualifications so I can get verified. [POST — pilot collects working rights + screening declarations only]
-- US1.3 As an Admin, I want to review and approve worker documents so only safe workers are on the platform. [PILOT — verification queue with Verify/Revoke; document files post-pilot]
+## Epic 1 — Identity, tenancy & onboarding
+US1.1 As platform admin, I want to onboard a coordinator organisation as a tenant. [NEW]
+US1.2 As coordinator staff, I want M365 SSO + MFA login. [NEW]
+US1.3 As client/worker, I want standalone login with MFA. [NEW]
+US1.4 As worker, I want to upload police check / WWCC / licence with issue + expiry dates at onboarding. [NEW]
+US1.5 As worker, I want my profile hidden until I explicitly consent to display it. [NEW]
+US1.6 As client, I want my full name, DOB, address, phone captured at registration (commission reporting). [NEW]
 
-## Epic 2: Search & Matching
-- US2.1 As a Client, I want to search workers by skill and location. [POST — pilot matches on shared interests]
-- US2.2 As a Client, I want to see worker profiles with ratings and bios. [PILOT — bio, skills, rate, wellness match %; ratings post-pilot]
-- US2.3 As a Client, I want to filter workers by availability and hourly rate. [POST]
+## Epic 2 — Matching & requests (availability-first)
+US2.1 As client, I want to request support by availability/time, not by browsing worker profiles. [NEW]
+US2.2 As coordinator, I want to advertise/post a shift for workers to accept. [NEW]
+US2.3 As worker, I want to see open shifts matching my skills/availability and accept them. [NEW]
+US2.4 As client, I want interest-based suggestions when workers have consented to display. [PILOT→NEW]
+US2.5 As coordinator, I want to place my clients with verified workers, keeping the relationship. [PILOT]
 
-## Epic 3: Booking & Payments
-- US3.1 As a Client, I want to book a session for a specific date/time. [PILOT — booking request sent; exact slot scheduling post-pilot]
-- US3.2 As a Client, I want to pay securely via credit card or NDIS plan funds. [POST]
-- US3.3 As a Worker, I want to receive booking notifications and accept/decline requests. [PILOT — accept/decline in My Hub, no penalty on decline]
+## Epic 3 — Shifts & progress notes (legal evidence)
+US3.1 As worker, I want to check in/out on a shift in-app. [PILOT→NEW]
+US3.2 As worker, I want to submit a mandatory progress note (text + photos) to complete a shift. [NEW]
+US3.3 As coordinator, I want to approve/reject progress notes before invoicing; approved notes immutable. [NEW]
+US3.4 As worker (contractor), I want a tax invoice generated per approved shift. [NEW]
+US3.5 As coordinator, I want invoices routed to the client's plan manager until we are registered. [NEW]
 
-## Epic 4: Service Delivery
-- US4.1 As a Worker, I want to check-in and check-out of sessions digitally. [POST]
-- US4.2 As a Client, I want to view session logs and activities completed. [POST]
-- US4.3 As a Worker, I want to add notes about the session for future reference. [POST]
+## Epic 4 — Communication
+US4.1 As coordinator/client, I want to call a prospective worker in-app with masked numbers (interview). [NEW]
+US4.2 As user, I want in-app messaging without exposing personal contacts. [NEW]
 
-## Epic 5: Wellness & Goals
-- US5.1 As a Client, I want to log my mood (1–10) after each session. [PILOT — client wellness check-in: mood / goals / satisfaction]
-- US5.2 As a Client, I want to set wellness goals (e.g., "Go to gym twice a week"). [POST]
-- US5.3 As a Worker, I want to see my client's goals before the session starts. [POST]
-- US5.4 As a Worker, I want to submit a confidential weekly wellbeing check-in (load, support, balance). [PILOT]
-- US5.5 As a Manager, I want to see worker wellbeing status (Thriving / Steady / At risk) without ever seeing their answers. [PILOT]
-- US5.6 As a Manager, I want to schedule a welfare chat with a flagged worker. [PILOT]
+## Epic 5 — Wellness & retention
+US5.1 As worker, I want confidential weekly check-ins (load/supported/balance). [PILOT]
+US5.2 As coordinator, I want derived status only (Thriving/Steady/At Risk), never raw answers. [PILOT]
+US5.3 As coordinator, I want to schedule welfare chats with flagged workers. [PILOT]
+US5.4 As client, I want to log mood/goals/satisfaction after sessions. [PILOT]
 
-## Epic 6: Reviews & Community
-- US6.1 As a Client, I want to leave a rating and review for a worker. [POST]
-- US6.2 As a Worker, I want to see my average rating and feedback. [POST]
-- US6.3 As a User, I want to join community forums or groups. [WON'T — MVP]
+## Epic 6 — Compliance & operations
+US6.1 As coordinator, I want expiry alerts on worker documents. [NEW]
+US6.2 As coordinator, I want an accessibility-compliant (WCAG 2.1 AA) interface for clients with disability. [NEW]
+US6.3 As coordinator, I want a waitlist intake for new coordinator organisations. [PILOT]
+US6.4 As admin, I want per-tenant sync health with VisualCare. [NEW]
 
-## Epic 7: Platform Operations (Admin)
-- US7.1 As an Admin, I want KPIs, wellness trend, booking status and revenue charts on one dashboard. [PILOT]
-- US7.2 As an Admin, I want an attention feed (at-risk workers, pending verifications, declined requests). [PILOT]
-- US7.3 As an Admin, I want to view all client requests with match scores and statuses. [PILOT]
-- US7.4 As a Coordinator/plan manager, I want to place my clients with verified workers while keeping the relationship. [PILOT — waitlist intake only]
+## Non-goals
+Community forums [WON'T] · profile browsing without consent [WON'T] · direct Xero [WON'T].

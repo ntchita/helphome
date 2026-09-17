@@ -383,3 +383,71 @@ input[type="range"] { width: 100%; height: 6px; accent-color: var(--hh-blue); cu
 @keyframes chart-fade { to { opacity: 1; } }
 .chart-bar { transform-box: fill-box; transform-origin: bottom; animation: chart-rise 0.9s cubic-bezier(0.2, 0.8, 0.3, 1) backwards; }
 @keyframes chart-rise { from { transform: scaleY(0); } }
+
+/* ---------- Verification queue context label (additive) ---------- */
+.queue-context { color: var(--hh-blue, #00A3E0); font-size: 0.8rem; font-weight: 600; margin: 0.15rem 0 0.3rem; }
+
+/* ---------- Verification filters (additive) ---------- */
+.filter-row { display: flex; flex-wrap: wrap; gap: 0.4rem; align-items: center; margin-bottom: 0.75rem; }
+.filter-label { font-size: 0.82rem; font-weight: 700; color: var(--hh-grey, #61707B); margin-right: 0.3rem; }
+.filter-row .chip { padding: 0.3rem 0.75rem; font-size: 0.78rem; }
+
+/* ---------- Verification layout (additive) ---------- */
+.filters-bar { display: flex; flex-wrap: wrap; gap: 1.25rem; align-items: center; margin-bottom: 1.25rem; padding: 0.9rem 1.25rem; background: var(--hh-white, #fff); border: 1px solid var(--hh-border, #D9E4EA); border-radius: var(--radius, 16px); }
+.filters-bar .filter-row { margin-bottom: 0; }
+.filter-label { font-size: 0.82rem; font-weight: 700; color: var(--hh-grey, #61707B); margin-right: 0.3rem; }
+.filter-row { display: flex; flex-wrap: wrap; gap: 0.4rem; align-items: center; }
+.filter-row .chip { padding: 0.3rem 0.75rem; font-size: 0.78rem; }
+.verification-layout { display: grid; grid-template-columns: 2fr 1fr; gap: 1.5rem; align-items: start; }
+.verification-side { display: flex; flex-direction: column; gap: 1.5rem; }
+.queue-count { display: inline-block; margin-left: 0.5rem; padding: 0.1rem 0.6rem; background: var(--hh-blue-soft, #E6F6FD); color: var(--hh-blue, #00A3E0); font-size: 0.75rem; font-weight: 800; border-radius: 999px; vertical-align: middle; }
+@media (max-width: 900px) { .verification-layout { grid-template-columns: 1fr; } }
+
+/* ---------- Verification bottom strip (additive) ---------- */
+.bottom-grid { margin-top: 1.5rem; }
+.bottom-grid.single { grid-template-columns: 1fr; }
+@media (max-width: 768px) { .bottom-grid { grid-template-columns: 1fr; } }
+
+/* ---------- Unified desktop/mobile page width (additive) ---------- */
+:root { --page-max: 1180px; }
+
+/* main wrapper — same width everywhere */
+.page-container {
+  max-width: var(--page-max);
+  margin: 0 auto;
+  padding: 2rem 1.25rem 3rem;
+}
+
+/* remove per-page caps so they inherit the wrapper width */
+.admin-page,
+.worker-hub-page,
+.admin-home-page,
+.charts-grid,
+.verification-layout,
+.bottom-grid,
+.hub-grid,
+.worker-grid,
+.plans-grid {
+  max-width: 100%;
+  margin-left: 0;
+  margin-right: 0;
+}
+
+@media (max-width: 768px) {
+  .page-container { padding: 1.25rem 1rem 2.5rem; }
+  .bottom-grid { grid-template-columns: 1fr; }
+}
+
+/* ---------- Align nav/topbar widths to page content (additive) ---------- */
+.nav-content,
+.topbar-content {
+  max-width: var(--page-max, 1180px);
+  margin: 0 auto;
+  padding-left: 1.25rem;
+  padding-right: 1.25rem;
+}
+
+@media (max-width: 768px) {
+  .nav-content,
+  .topbar-content { padding-left: 1rem; padding-right: 1rem; }
+}

@@ -461,16 +461,22 @@ app.get('/api/roster', async (c) => {
   const [user] = await db.select().from(schema.users).where(eq(schema.users.id, userId)).limit(1);
   if (!user) return c.json({ error: 'User not found' }, 404);
   if (user.role !== 'coordinator' && user.role !== 'admin') return c.json({ error: 'Forbidden' }, 403);
-  if (!user.tenantId) return c.json({ error: 'No tenant' }, 403);
 
-  const rows = await db
+  // Admin (no tenant) sees every coordinator-worker across all tenants.
+  // Coordinator sees only their own tenant's roster.
+  const tenantFilter = user.role === 'coordinator' && user.tenantId ? user.tenantId : null;
+
+  const baseQuery = db
     .select({ profile: schema.workerProfiles, fullName: schema.users.fullName })
     .from(schema.workerProfiles)
-    .leftJoin(schema.users, eq(schema.workerProfiles.userId, schema.users.id))
-    .where(and(
-      eq(schema.workerProfiles.tenantId, user.tenantId),
-      eq(schema.workerProfiles.workerType, 'coordinator')
-    ));
+    .leftJoin(schema.users, eq(schema.workerProfiles.userId, schema.users.id));
+
+  const rows = tenantFilter
+    ? await baseQuery.where(and(
+        eq(schema.workerProfiles.tenantId, tenantFilter),
+        eq(schema.workerProfiles.workerType, 'coordinator')
+      ))
+    : await baseQuery.where(eq(schema.workerProfiles.workerType, 'coordinator'));
 
   const now = Date.now();
   const hour = 3_600_000;
@@ -942,29 +948,135 @@ app.get('/api/charts/status', async (c) => {
 // TODO: replace with live Xero/VisualCare sync post-pilot.
 app.get('/api/charts/revenue', (c) => c.json(revenue));
 
-// --- Verification Queue (Derived from unified workers) ---
-app.get('/api/verification', (c) => c.json(workers.map((w) => ({
-  id: w.id, name: w.name, checks: w.checks, status: w.verificationStatus,
-}))));
+// --- Verification Queue (DB-backed) ---
+app.get('/api/verification', async (c) => {
+  const userId = c.req.header('x-user-id');
+  if (!userId) return c.json({ error: 'Unauthenticated' }, 401);
 
-app.post('/api/verification/:id/toggle', (c) => {
-  const worker = workers.find((w) => w.id === Number(c.req.param('id')));
-  if (!worker) return c.json({ success: false, message: 'Worker not found' }, 404);
-  worker.verificationStatus = worker.verificationStatus === 'verified' ? 'pending' : 'verified';
-  return c.json({ id: worker.id, name: worker.name, checks: worker.checks, status: worker.verificationStatus });
+  const db = await getDb();
+  const [user] = await db.select().from(schema.users).where(eq(schema.users.id, userId)).limit(1);
+  if (!user) return c.json({ error: 'User not found' }, 404);
+  if (user.role !== 'admin' && user.role !== 'coordinator') return c.json({ error: 'Forbidden' }, 403);
+
+  const scope = user.role === 'coordinator' && user.tenantId ? user.tenantId : null;
+
+  const rows = await db
+    .select({ profile: schema.workerProfiles, fullName: schema.users.fullName })
+    .from(schema.workerProfiles)
+    .leftJoin(schema.users, eq(schema.workerProfiles.userId, schema.users.id))
+    .orderBy(schema.users.fullName);
+
+  const filtered = scope ? rows.filter((r) => r.profile.tenantId === scope) : rows;
+
+  // Collect tenant names for context labels
+  const tenants = await db.select().from(schema.tenants);
+  const tenantById = new Map(tenants.map((t) => [t.id, t.name]));
+
+  // For admin, add "Dual" marker for people with >1 profile
+  const profileCountByUser = new Map<string, number>();
+  for (const r of rows) {
+    profileCountByUser.set(r.profile.userId, (profileCountByUser.get(r.profile.userId) ?? 0) + 1);
+  }
+
+  return c.json(filtered.map((r) => {
+    const context = r.profile.workerType === 'coordinator'
+      ? `Coordinator · ${tenantById.get(r.profile.tenantId || '') || 'HelpHome'}`
+      : 'Independent · CareWork';
+    const isDual = (profileCountByUser.get(r.profile.userId) ?? 0) > 1;
+    return {
+      id: r.profile.id,
+      name: r.fullName || 'Worker',
+      context: isDual ? `${context} · Dual` : context,
+      checks: r.profile.verificationStatus === 'verified'
+        ? 'All documents verified'
+        : 'Documents pending review',
+      status: r.profile.verificationStatus,
+    };
+  }));
 });
 
-app.get('/api/verification/activity', (c) => c.json([
-  'Jane Doe accepted a booking request — Thu 9:00',
-  'Sarah Lee submitted a wellness check (4/5) — Wed',
-  'New worker application received: John Smith — Mon',
-]));
+app.post('/api/verification/:id/toggle', async (c) => {
+  const userId = c.req.header('x-user-id');
+  if (!userId) return c.json({ error: 'Unauthenticated' }, 401);
 
-app.get('/api/verification/stats', (c) => c.json([
-  { value: String(workers.length), label: 'active support workers' },
-  { value: String(bookings.length), label: 'bookings this week' },
-  { value: String(checkinHistory.length), label: 'wellness check-ins this week' },
-]));
+  const db = await getDb();
+  const [user] = await db.select().from(schema.users).where(eq(schema.users.id, userId)).limit(1);
+  if (!user) return c.json({ error: 'User not found' }, 404);
+  if (user.role !== 'admin' && user.role !== 'coordinator') return c.json({ error: 'Forbidden' }, 403);
+
+  const profileId = c.req.param('id');
+  const [profile] = await db.select().from(schema.workerProfiles).where(eq(schema.workerProfiles.id, profileId)).limit(1);
+  if (!profile) return c.json({ error: 'Worker not found' }, 404);
+
+  // Scope check: coordinator can only toggle their own tenant's workers
+  if (user.role === 'coordinator' && profile.tenantId !== user.tenantId) {
+    return c.json({ error: 'Forbidden' }, 403);
+  }
+
+  const newStatus = profile.verificationStatus === 'verified' ? 'pending' : 'verified';
+  await db.update(schema.workerProfiles).set({ verificationStatus: newStatus }).where(eq(schema.workerProfiles.id, profileId));
+
+  const [owner] = await db.select().from(schema.users).where(eq(schema.users.id, profile.userId)).limit(1);
+
+  return c.json({
+    id: profile.id,
+    name: owner?.fullName || 'Worker',
+    checks: newStatus === 'verified' ? 'All documents verified' : 'Documents pending review',
+    status: newStatus,
+  });
+});
+
+app.get('/api/verification/activity', async (c) => {
+  const userId = c.req.header('x-user-id');
+  if (!userId) return c.json({ error: 'Unauthenticated' }, 401);
+
+  const db = await getDb();
+  const [user] = await db.select().from(schema.users).where(eq(schema.users.id, userId)).limit(1);
+  if (!user) return c.json({ error: 'User not found' }, 404);
+  if (user.role !== 'admin' && user.role !== 'coordinator') return c.json({ error: 'Forbidden' }, 403);
+
+  const scope = user.role === 'coordinator' && user.tenantId ? user.tenantId : null;
+
+  // Latest 5 worker profiles with a registration timestamp, plus latest 5 verified
+  const workerQuery = db.select({ profile: schema.workerProfiles, fullName: schema.users.fullName })
+    .from(schema.workerProfiles)
+    .leftJoin(schema.users, eq(schema.workerProfiles.userId, schema.users.id));
+  const rows = scope
+    ? await workerQuery.where(eq(schema.workerProfiles.tenantId, scope))
+    : await workerQuery;
+
+  const verified = rows.filter((r) => r.profile.verificationStatus === 'verified').slice(0, 3);
+  const pending = rows.filter((r) => r.profile.verificationStatus === 'pending').slice(0, 3);
+
+  const events: string[] = [];
+  for (const v of verified) events.push(`${v.fullName || 'Worker'} — verification complete`);
+  for (const p of pending) events.push(`${p.fullName || 'Worker'} — awaiting verification review`);
+
+  return c.json(events.slice(0, 6));
+});
+
+app.get('/api/verification/stats', async (c) => {
+  const userId = c.req.header('x-user-id');
+  if (!userId) return c.json({ error: 'Unauthenticated' }, 401);
+
+  const db = await getDb();
+  const [user] = await db.select().from(schema.users).where(eq(schema.users.id, userId)).limit(1);
+  if (!user) return c.json({ error: 'User not found' }, 404);
+  if (user.role !== 'admin' && user.role !== 'coordinator') return c.json({ error: 'Forbidden' }, 403);
+
+  const scope = user.role === 'coordinator' && user.tenantId ? user.tenantId : null;
+
+  const workerQuery = db.select().from(schema.workerProfiles);
+  const allWorkers = scope ? await workerQuery.where(eq(schema.workerProfiles.tenantId, scope)) : await workerQuery;
+  const shifts = scope ? await db.select().from(schema.shifts).where(eq(schema.shifts.tenantId, scope)) : await db.select().from(schema.shifts);
+  const logs = await db.select().from(schema.wellnessLogs).where(eq(schema.wellnessLogs.audience, 'worker'));
+
+  return c.json([
+    { value: String(allWorkers.length), label: 'active support workers' },
+    { value: String(shifts.length), label: 'bookings this week' },
+    { value: String(logs.length), label: 'wellness check-ins this week' },
+  ]);
+});
 
 // --- Auth (DB-backed) ---
 const demoLogins = [

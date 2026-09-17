@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 type ReqStatus = 'accepted' | 'pending' | 'declined';
 
 interface ClientRequest {
-  id: number;
+  id: number | string;
   client: string;
   worker: string;
   service: string;
@@ -13,19 +14,40 @@ interface ClientRequest {
 }
 
 export default function ClientRequests() {
+  const navigate = useNavigate();
   const [requests, setRequests] = useState<ClientRequest[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
   const [filter, setFilter] = useState<'all' | ReqStatus>('all');
 
   useEffect(() => {
-    fetch('/api/requests')
-      .then((r) => r.json())
-      .then((data) => setRequests(data))
-      .catch(() => setRequests([]))
+    const userId = localStorage.getItem('helphome_user_id');
+    if (!userId) { navigate('/login', { replace: true }); return; }
+
+    fetch('/api/requests', { headers: { 'x-user-id': userId } })
+      .then(async (r) => {
+        if (r.status === 401 || r.status === 404) throw new Error('SESSION_EXPIRED');
+        return r.json();
+      })
+      .then((data) => {
+        if (Array.isArray(data)) setRequests(data);
+      })
+      .catch((e) => {
+        if (e.message === 'SESSION_EXPIRED') {
+          localStorage.removeItem('helphome_logged_in');
+          localStorage.removeItem('helphome_role');
+          localStorage.removeItem('helphome_user_id');
+          localStorage.removeItem('helphome_worker_contexts');
+          navigate('/login', { replace: true });
+          return;
+        }
+        setError('Cannot reach the server.');
+      })
       .finally(() => setLoading(false));
-  }, []);
+  }, [navigate]);
 
   if (loading) return <div className="card">Loading client requests...</div>;
+  if (error) return <div className="card flash error">{error}</div>;
 
   const rows = requests.filter((r) => filter === 'all' || r.status === filter);
   const count = (s: ReqStatus) => requests.filter((r) => r.status === s).length;

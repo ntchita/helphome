@@ -1,3 +1,4 @@
+import { eq } from 'drizzle-orm';
 import type { PgliteDatabase } from 'drizzle-orm/pglite';
 import * as s from './schema.ts';
 
@@ -217,6 +218,17 @@ export async function seed(db: PgliteDatabase<typeof s>) {
     { tenantId: null, userId: clientMap['Jane Doe'].userId, audience: 'client', logType: 'goals',        score: 7, createdAt: daysAgo(2) },
     { tenantId: null, userId: clientMap['Jane Doe'].userId, audience: 'client', logType: 'satisfaction', score: 9, createdAt: daysAgo(1) },
   ]);
+
+  // Demo realism: force 2 HelpHome roster workers to pending so Tonia's
+  // verification queue has something she can action.
+  const pendingNames = ['Jack Sparrow', 'Jeremy Renner'];
+  for (const name of pendingNames) {
+    const ref = empMap[name];
+    if (!ref) continue;
+    await db.update(s.workerProfiles)
+      .set({ verificationStatus: 'pending' })
+      .where(eq(s.workerProfiles.id, ref.profileId));
+  }
 
   console.log('[seed] CareWork + HelpHome + 40 users + 5 shifts + 91 wellness logs inserted');
 }

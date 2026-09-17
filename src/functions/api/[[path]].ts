@@ -1,18 +1,6 @@
 const API = 'https://helphome-api.lifewealth.workers.dev';
 
-const CORS = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization, x-user-id',
-  'Access-Control-Max-Age': '86400',
-  'Cache-Control': 'no-store',
-};
-
 export async function onRequest(context: any) {
-  if (context.request.method === 'OPTIONS') {
-    return new Response(null, { status: 204, headers: CORS });
-  }
-
   try {
     const url = new URL(context.request.url);
     const target = API + url.pathname + url.search;
@@ -39,10 +27,10 @@ export async function onRequest(context: any) {
       status: res.status,
       headers: {
         'content-type': responseCT,
-        ...CORS,
+        'Access-Control-Allow-Origin': '*',
       },
     });
   } catch (e: any) {
-    return new Response(`Proxy error: ${e.message}`, { status: 502, headers: CORS });
+    return new Response(`Proxy error: ${e.message}`, { status: 502 });
   }
 }

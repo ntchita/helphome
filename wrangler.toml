@@ -1,13 +1,14 @@
 name = "helphome-api"
 main = "src/api/index.ts"
-compatibility_date = "2026-09-01"
+compatibility_date = "2025-09-01"
 compatibility_flags = ["nodejs_compat"]
 
 [vars]
-ENVIRONMENT = "local"
+ENVIRONMENT = "production"
+
+[[hyperdrive]]
+binding = "HYPERDRIVE"
+id = "f9dfbabe72104e969a7caa16fdf75769"
 
 [dev]
-local = true
 port = 8787
-
-workers_dev = true

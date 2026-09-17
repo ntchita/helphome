@@ -3,22 +3,20 @@ import { drizzle as drizzlePglite, type PgliteDatabase } from 'drizzle-orm/pglit
 import { drizzle as drizzlePg, type PostgresJsDatabase } from 'drizzle-orm/postgres-js';
 import { migrate as migratePglite } from 'drizzle-orm/pglite/migrator';
 import postgres from 'postgres';
-import { readFileSync } from 'fs';
 import * as schema from './schema.ts';
 import { seed } from './seed.ts';
 
 type Database = PgliteDatabase<typeof schema> | PostgresJsDatabase<typeof schema>;
 
-let db: Database | undefined;
+let cached: Database | undefined;
 let mode: 'pglite' | 'postgres' = 'pglite';
 
-function loadDbUrl(env?: any): string {
-  // 1. Cloudflare Workers binding (Hyperdrive)
-  if (env?.HYPERDRIVE?.connectionString) return env.HYPERDRIVE.connectionString;
-  // 2. Process env (set by shell)
+async function loadDbUrl(): Promise<string> {
+  const g = globalThis as any;
+  if (g.__HYPERDRIVE_URL) return g.__HYPERDRIVE_URL;
   if (typeof process !== 'undefined' && process.env?.DATABASE_URL) return process.env.DATABASE_URL;
-  // 3. Local .dev.vars fallback
   try {
+    const { readFileSync } = await import('fs');
     const raw = readFileSync('.dev.vars', 'utf-8');
     const line = raw.split('\n').find((l) => l.startsWith('DATABASE_URL='));
     if (line) return line.slice('DATABASE_URL='.length).trim();
@@ -26,31 +24,40 @@ function loadDbUrl(env?: any): string {
   return '';
 }
 
-export async function getDb(env?: any): Promise<Database> {
-  if (db) return db;
-
-  const url = loadDbUrl(env);
+export async function getDb(): Promise<Database> {
+  const url = await loadDbUrl();
+  const inWorkers =
+    typeof (globalThis as any).__HYPERDRIVE_URL === 'string' &&
+    (globalThis as any).__HYPERDRIVE_URL.length > 0;
 
   if (url && url.startsWith('postgres')) {
     mode = 'postgres';
-    const client = postgres(url, { max: 5, prepare: false });
-    db = drizzlePg(client, { schema });
-    try {
-      const existing = await (db as PostgresJsDatabase<typeof schema>).select().from(schema.tenants).limit(1);
-      if (existing.length === 0) {
-        await seed(db as any);
-      }
-    } catch {
-      // schema not yet pushed
+
+    if (inWorkers) {
+      // Workers: create a fresh client per request — connections don't survive
+      // between requests, so caching the client causes "connection closed" errors.
+      const client = postgres(url, { max: 1, prepare: false, idle_timeout: 5 });
+      return drizzlePg(client, { schema });
     }
-  } else {
-    const client = new PGlite((typeof process !== 'undefined' && process.env?.PGDATA) || '.data/pg');
-    db = drizzlePglite(client, { schema });
-    await migratePglite(db, { migrationsFolder: 'drizzle' });
-    await seed(db as any);
+
+    // Node (local backend): cache is safe — long-lived process
+    if (cached) return cached;
+    const client = postgres(url, { max: 5, prepare: false });
+    cached = drizzlePg(client, { schema });
+    try {
+      const existing = await (cached as PostgresJsDatabase<typeof schema>).select().from(schema.tenants).limit(1);
+      if (existing.length === 0) await seed(cached as any);
+    } catch {}
+    return cached;
   }
 
-  return db;
+  // PGlite local fallback
+  if (cached) return cached;
+  const client = new PGlite((typeof process !== 'undefined' && process.env?.PGDATA) || '.data/pg');
+  cached = drizzlePglite(client, { schema });
+  await migratePglite(cached, { migrationsFolder: 'drizzle' });
+  await seed(cached as any);
+  return cached;
 }
 
 export function getDbMode() {

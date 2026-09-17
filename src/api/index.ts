@@ -6,6 +6,15 @@ import { calculateWellnessMatch, rankWorkers } from './utils/matcher.ts';
 
 const app = new Hono();
 
+// In Workers, Hyperdrive provides the pooled connection URL via c.env.HYPERDRIVE
+app.use('/api/*', async (c, next) => {
+  const env: any = (c as any).env;
+  if (env?.HYPERDRIVE?.connectionString) {
+    (globalThis as any).__HYPERDRIVE_URL = env.HYPERDRIVE.connectionString;
+  }
+  await next();
+});
+
 const hoursBetween = (a: Date | string, b: Date | string) =>
   (new Date(b).getTime() - new Date(a).getTime()) / 3_600_000;
 

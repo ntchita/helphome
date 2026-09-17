@@ -1,4 +1,4 @@
-const BASE = 'http://localhost:8787';
+const BASE = process.env.SMOKE_API || 'http://localhost:8787';
 let pass = 0, fail = 0;
 const results = [];
 

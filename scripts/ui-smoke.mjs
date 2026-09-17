@@ -1,7 +1,7 @@
 import { chromium } from 'playwright';
 
-const BASE = 'http://localhost:5173';
-const API = 'http://localhost:8787';
+const BASE = process.env.SMOKE_BASE || 'http://localhost:5173';
+const API  = process.env.SMOKE_API  || 'http://localhost:8787';
 
 let pass = 0, fail = 0;
 const results = [];
@@ -64,12 +64,12 @@ console.log('\n--- T1: Client ---');
 
 await check('T1.1 login → /dashboard', async () => {
   await login('jane.doe@client.com');
-  await page.waitForURL('**/dashboard', { timeout: 15000 });
+  await page.waitForURL('**/dashboard', { timeout: 5000 });
   return true;
 });
 
 await check('T1.2 worker cards render', async () => {
-  await page.waitForSelector('.worker-card', { timeout: 15000 });
+  await page.waitForSelector('.worker-card', { timeout: 5000 });
   return (await page.locator('.worker-card').count()) > 0;
 });
 
@@ -120,7 +120,7 @@ await check('T1.8 wellness submit → thank-you', async () => {
   await page.goto(`${BASE}/wellness`);
   await page.waitForSelector('form');
   await page.click('button[type="submit"]');
-  await page.waitForSelector('.wellness-success', { timeout: 15000 });
+  await page.waitForSelector('.wellness-success', { timeout: 5000 });
   return true;
 });
 
@@ -138,7 +138,7 @@ await check('T1.9 booking unavailable worker fails gracefully (API)', async () =
 
 await check('T1.10 client cannot access /admin (bounces)', async () => {
   await page.goto(`${BASE}/admin`);
-  await page.waitForURL('**/dashboard', { timeout: 15000 });
+  await page.waitForURL('**/dashboard', { timeout: 5000 });
   return !page.url().includes('/admin');
 });
 
@@ -151,12 +151,12 @@ console.log('\n--- T2: Independent Worker (Mia) ---');
 
 await check('T2.1 login → /my-hub, no tabs', async () => {
   await login('mia.chen@worker.com');
-  await page.waitForURL('**/my-hub', { timeout: 15000 });
+  await page.waitForURL('**/my-hub', { timeout: 5000 });
   return (await page.locator('.hub-tab').count()) === 0;
 });
 
 await check('T2.2 my-hub renders 3 cards', async () => {
-  await page.waitForSelector('.hub-card', { timeout: 15000 });
+  await page.waitForSelector('.hub-card', { timeout: 5000 });
   return (await page.locator('.hub-card').count()) >= 3;
 });
 
@@ -164,14 +164,14 @@ await check('T2.3 accept request → green flash', async () => {
   const accept = page.locator('button', { hasText: /^Accept$/ }).first();
   if (await accept.count() === 0) return true;
   await accept.click();
-  await page.waitForSelector('.flash.success', { timeout: 15000 });
+  await page.waitForSelector('.flash.success', { timeout: 5000 });
   return true;
 });
 
 await check('T2.4 worker wellness submit updates chart', async () => {
   // reload to pick up accepted state
   await page.goto(`${BASE}/my-hub`);
-  await page.waitForSelector('.mood-bars', { timeout: 15000 });
+  await page.waitForSelector('.mood-bars', { timeout: 5000 });
   const before = await page.locator('.mood-col').count();
   await page.locator('button[type="submit"]').click();
   await page.waitForTimeout(800);
@@ -189,7 +189,7 @@ await check('T2.5 flag support fails for independent (no coordinator)', async ()
 
 await check('T2.6 worker cannot access /coordinator (bounces)', async () => {
   await page.goto(`${BASE}/coordinator`);
-  await page.waitForURL('**/my-hub', { timeout: 15000 });
+  await page.waitForURL('**/my-hub', { timeout: 5000 });
   return !page.url().includes('/coordinator');
 });
 
@@ -202,8 +202,8 @@ console.log('\n--- T3: Dual Worker (Sarah) ---');
 
 await check('T3.1 login → /my-hub with 2 tabs', async () => {
   await login('sarah.johnson@helphome-worker.com');
-  await page.waitForURL('**/my-hub', { timeout: 15000 });
-  await page.waitForSelector('.hub-tab', { timeout: 15000 });
+  await page.waitForURL('**/my-hub', { timeout: 5000 });
+  await page.waitForSelector('.hub-tab', { timeout: 5000 });
   return (await page.locator('.hub-tab').count()) === 2;
 });
 
@@ -226,7 +226,7 @@ await check('T3.4 worker only sees own shifts (not Mia\'s)', async () => {
 
 await check('T3.5 flag support → green flash (has coordinator)', async () => {
   await page.locator('button', { hasText: /Flag I need support/ }).click();
-  await page.waitForSelector('.flash.success', { timeout: 15000 });
+  await page.waitForSelector('.flash.success', { timeout: 5000 });
   return true;
 });
 
@@ -239,12 +239,12 @@ console.log('\n--- T4: Coordinator (Tonia) ---');
 
 await check('T4.1 login → /coordinator', async () => {
   await login('tonia@helphome.au');
-  await page.waitForURL('**/coordinator', { timeout: 15000 });
+  await page.waitForURL('**/coordinator', { timeout: 5000 });
   return true;
 });
 
 await check('T4.2 20 workers rendered', async () => {
-  await page.waitForSelector('.hub-card', { timeout: 15000 });
+  await page.waitForSelector('.hub-card', { timeout: 5000 });
   return (await page.locator('.hub-card').count()) === 20;
 });
 
@@ -270,7 +270,7 @@ await check('T4.5 All filter restores 20', async () => {
 
 await check('T4.6 schedule welfare chat → flash', async () => {
   await page.locator('button', { hasText: /Schedule welfare chat/ }).first().click();
-  await page.waitForSelector('.flash.success', { timeout: 15000 });
+  await page.waitForSelector('.flash.success', { timeout: 5000 });
   return true;
 });
 
@@ -281,7 +281,7 @@ await check('T4.7 client requests section populated', async () => {
 
 await check('T4.8 verification page loads 20 (own tenant only)', async () => {
   await page.goto(`${BASE}/verification`);
-  await page.waitForSelector('.queue-row', { timeout: 15000 });
+  await page.waitForSelector('.queue-row', { timeout: 5000 });
   return (await page.locator('.queue-row').count()) === 20;
 });
 
@@ -305,7 +305,7 @@ await check('T4.10 verification toggle flips status', async () => {
 
 await check('T4.11 coordinator cannot access /admin', async () => {
   await page.goto(`${BASE}/admin`);
-  await page.waitForURL('**/coordinator', { timeout: 15000 });
+  await page.waitForURL('**/coordinator', { timeout: 5000 });
   return !page.url().includes('/admin');
 });
 
@@ -318,12 +318,12 @@ console.log('\n--- T5: Admin ---');
 
 await check('T5.1 login → /admin', async () => {
   await login('admin@carework.au');
-  await page.waitForURL('**/admin', { timeout: 15000 });
+  await page.waitForURL('**/admin', { timeout: 5000 });
   return true;
 });
 
 await check('T5.2 KPIs = 6', async () => {
-  await page.waitForSelector('.kpi-card', { timeout: 15000 });
+  await page.waitForSelector('.kpi-card', { timeout: 5000 });
   return (await page.locator('.kpi-card').count()) === 6;
 });
 
@@ -333,7 +333,7 @@ await check('T5.3 KPI values numeric', async () => {
 });
 
 await check('T5.4 dismiss alert removes it from view', async () => {
-  await page.waitForSelector('.alert-row', { timeout: 15000 });
+  await page.waitForSelector('.alert-row', { timeout: 5000 });
   const before = await page.locator('.alert-row').count();
   if (before === 0) return true;
   await page.locator('.alert-dismiss').first().click();
@@ -342,7 +342,7 @@ await check('T5.4 dismiss alert removes it from view', async () => {
 });
 
 await check('T5.5 activity feed shows events', async () => {
-  await page.waitForSelector('.activity-row', { timeout: 15000 });
+  await page.waitForSelector('.activity-row', { timeout: 5000 });
   return (await page.locator('.activity-row').count()) > 0;
 });
 
@@ -356,13 +356,13 @@ await check('T5.7 platform health renders 4 bars', async () => {
 
 await check('T5.8 coordinator hub loads 20', async () => {
   await page.goto(`${BASE}/coordinator`);
-  await page.waitForSelector('.hub-card', { timeout: 15000 });
+  await page.waitForSelector('.hub-card', { timeout: 5000 });
   return (await page.locator('.hub-card').count()) === 20;
 });
 
 await check('T5.9 verification loads 32 profiles', async () => {
   await page.goto(`${BASE}/verification`);
-  await page.waitForSelector('.queue-row', { timeout: 15000 });
+  await page.waitForSelector('.queue-row', { timeout: 5000 });
   return (await page.locator('.queue-row').count()) === 32;
 });
 
@@ -374,7 +374,7 @@ await check('T5.10 context filter Dual shows 4 rows', async () => {
 
 await check('T5.11 client requests loads > 0', async () => {
   await page.goto(`${BASE}/requests`);
-  await page.waitForSelector('.queue-row', { timeout: 15000 });
+  await page.waitForSelector('.queue-row', { timeout: 5000 });
   return (await page.locator('.queue-row').count()) > 0;
 });
 
@@ -394,13 +394,13 @@ console.log('\n--- T6: Register ---');
 
 await check('T6.1 three doors visible', async () => {
   await page.goto(`${BASE}/register`);
-  await page.waitForSelector('.door-card', { timeout: 15000 });
+  await page.waitForSelector('.door-card', { timeout: 5000 });
   return (await page.locator('.door-card').count()) === 3;
 });
 
 await check('T6.2 client: NDIS → plan manager dropdown', async () => {
   await page.locator('.door-card', { hasText: /I need support/ }).click();
-  await page.waitForSelector('input[type="email"]', { timeout: 15000 });
+  await page.waitForSelector('input[type="email"]', { timeout: 5000 });
   await page.selectOption('select', 'ndis');
   await page.waitForTimeout(200);
   return (await page.locator('select').count()) >= 2;
@@ -446,7 +446,7 @@ await check('T6.5 client: full flow → success screen', async () => {
   await page.selectOption('select >> nth=1', 'PlanCare');
   await page.locator('.chip').first().click();
   await page.click('button[type="submit"]');
-  await page.waitForSelector('.worker-grid', { timeout: 15000 });
+  await page.waitForSelector('.worker-grid', { timeout: 5000 });
   return true;
 });
 
@@ -464,7 +464,7 @@ await check('T6.7 select worker → Confirm → green flash', async () => {
   if (await card.count() === 0) return true;
   await card.locator('button').click();
   await page.locator('button', { hasText: /Confirm/ }).click();
-  await page.waitForSelector('.flash.success', { timeout: 15000 });
+  await page.waitForSelector('.flash.success', { timeout: 5000 });
   return true;
 });
 
@@ -481,7 +481,7 @@ await check('T6.8 worker door: form + submit', async () => {
   await selects.nth(0).selectOption({ index: 1 });
   await selects.nth(1).selectOption({ index: 1 });
   await page.click('button[type="submit"]');
-  await page.waitForSelector('.promise-list', { timeout: 15000 });
+  await page.waitForSelector('.promise-list', { timeout: 5000 });
   return true;
 });
 
@@ -515,7 +515,7 @@ await check('T7.1 invalid user id → bounce to /login', async () => {
     localStorage.setItem('helphome_user_id', 'bogus-id');
   });
   await page.goto(`${BASE}/dashboard`);
-  await page.waitForURL('**/login', { timeout: 15000 });
+  await page.waitForURL('**/login', { timeout: 5000 });
   return true;
 });
 
@@ -535,7 +535,7 @@ const mpage = await mobile.newPage();
 
 await check('T8.1 mobile: hamburger visible', async () => {
   await mpage.goto(`${BASE}/`);
-  await mpage.waitForSelector('.nav-toggle', { state: 'visible', timeout: 15000 });
+  await mpage.waitForSelector('.nav-toggle', { state: 'visible', timeout: 5000 });
   return true;
 });
 
@@ -553,7 +553,7 @@ await check('T8.3 mobile: menu closes on link tap', async () => {
 
 await check('T8.4 mobile: register page renders on 400px', async () => {
   await mpage.goto(`${BASE}/register`);
-  await mpage.waitForSelector('.door-card', { timeout: 15000 });
+  await mpage.waitForSelector('.door-card', { timeout: 5000 });
   const w = await mpage.locator('.door-card').first().evaluate(el => el.getBoundingClientRect().width);
   return w > 0 && w <= 400;
 });

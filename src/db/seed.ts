@@ -27,9 +27,17 @@ export async function seed(db: PgliteDatabase<typeof s>) {
   for (const name of clientData) {
     const email = `${name.toLowerCase().replace(' ', '.')}@client.com`;
     const [user] = await db.insert(s.users).values({ email, passwordHash: 'test', role: 'client', fullName: name }).returning();
+    const seedInterests: Record<string, string[]> = {
+      'Jane Doe': ['dogs', 'music', 'outdoors'],
+      'Mark Taylor': ['fitness', 'outdoors'],
+      'Sarah Lee': ['music', 'art'],
+      'David Wong': ['cooking'],
+      'Emma Perry': ['reading', 'art'],
+    };
     const [profile] = await db.insert(s.clientProfiles).values({
       userId: user.id, tenantId: null, fullName: name, dob: '1990-01-01',
-      address: 'Sydney NSW', phone: '0400000000', fundingStream: 'ndis', planManagerType: 'plan_managed'
+      address: 'Sydney NSW', phone: '0400000000', fundingStream: 'ndis', planManagerType: 'plan_managed',
+      interests: seedInterests[name] || ['music'],
     }).returning();
     clientMap[name] = { userId: user.id, profileId: profile.id };
   }
@@ -40,12 +48,25 @@ export async function seed(db: PgliteDatabase<typeof s>) {
     'Ava Miller', 'Mason Wilson', 'Isabella Moore', 'Lucas Taylor', 'Sophia Anderson'
   ];
   const indMap: Record<string, { userId: string; profileId: string }> = {};
+  const indInterests: Record<string, string[]> = {
+    'Mia Chen': ['dogs', 'music', 'outdoors'],
+    'Liam Park': ['dogs', 'music'],
+    'Noah Smith': ['music', 'outdoors'],
+    'Olivia Jones': ['dogs', 'outdoors'],
+    'Ethan Davis': ['music'],
+    'Ava Miller': ['dogs'],
+    'Mason Wilson': ['outdoors'],
+    'Isabella Moore': ['music', 'art'],
+    'Lucas Taylor': ['fitness'],
+    'Sophia Anderson': ['cooking'],
+  };
   for (const name of indData) {
     const email = `${name.toLowerCase().replace(' ', '.')}@worker.com`;
     const [user] = await db.insert(s.users).values({ email, passwordHash: 'test', role: 'worker', fullName: name }).returning();
     const [profile] = await db.insert(s.workerProfiles).values({
       userId: user.id, tenantId: null, workerType: 'independent', abn: '11111111111',
-      bio: 'Independent support worker.', skills: ['Personal Care'], interests: ['music'],
+      bio: 'Independent support worker.', skills: ['Personal Care'],
+      interests: indInterests[name] || ['music'],
       hourlyRate: 40, consentToDisplay: true, verificationStatus: 'verified'
     }).returning();
     indMap[name] = { userId: user.id, profileId: profile.id };

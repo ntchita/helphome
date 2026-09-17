@@ -132,7 +132,7 @@ export default function AdminHome() {
       </section>
 
       <section className="quick-links">
-        <Link to="/manager" className="quick-link-card">
+        <Link to="/coordinator" className="quick-link-card">
           <span className="ql-icon">👷</span>
           <span>Coordinator Hub</span>
         </Link>

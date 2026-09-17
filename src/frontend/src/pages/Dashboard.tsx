@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 
 interface Worker {
-  id: number;
+  id: string;
   name: string;
   skills: string[];
   interests: string[];
@@ -19,22 +19,27 @@ interface ClientProfile {
 
 interface BookingMessage { text: string; type: 'success' | 'error' | 'info'; }
 
+type MatchFilter = 'all' | '50' | '75';
+
 export default function Dashboard() {
   const [workers, setWorkers] = useState<Worker[]>([]);
   const [clientProfile, setClientProfile] = useState<ClientProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [bookingStatus, setBookingStatus] = useState<{ [key: number]: 'sending' | 'success' | 'error' | null }>({});
-  const [messages, setMessages] = useState<{ [key: number]: BookingMessage | null }>({});
+  const [bookingStatus, setBookingStatus] = useState<{ [key: string]: 'sending' | 'success' | 'error' | null }>({});
+  const [messages, setMessages] = useState<{ [key: string]: BookingMessage | null }>({});
+  const [matchFilter, setMatchFilter] = useState<MatchFilter>('all');
+  const [interestFilter, setInterestFilter] = useState<string>('all');
 
   useEffect(() => {
+    const userId = localStorage.getItem('helphome_user_id');
     Promise.all([
-      fetch('/api/workers').then((r) => r.json()),
-      fetch('/api/client-profile').then((r) => r.json()),
+      fetch('/api/workers', { headers: { 'x-user-id': userId || '' } }).then((r) => r.json()),
+      fetch('/api/client-profile', { headers: { 'x-user-id': userId || '' } }).then((r) => r.json()),
     ])
       .then(([w, p]) => {
-        setWorkers(w);
-        setClientProfile(p);
+        if (Array.isArray(w)) setWorkers(w);
+        if (p && !p.error) setClientProfile(p);
         setError(null);
       })
       .catch((err: any) => {
@@ -44,11 +49,11 @@ export default function Dashboard() {
       .finally(() => setLoading(false));
   }, []);
 
-  const scoreOf = (w: Worker) => w.wellnessMatch ?? w.wellnessMatchScore;
+  const scoreOf = (w: Worker) => w.wellnessMatch ?? w.wellnessMatchScore ?? 0;
 
   const getMatchReason = (worker: Worker) => {
     const score = scoreOf(worker);
-    if (score === undefined || score === 0) return 'Standard availability';
+    if (score === 0) return 'Standard availability';
     const commonInterests = worker.interests.filter((i) => clientProfile?.interests.includes(i));
     if (commonInterests.length > 0) return `Matched on: ${commonInterests.join(', ')}`;
     return 'High skill compatibility';
@@ -56,32 +61,44 @@ export default function Dashboard() {
 
   const handleBookNow = async (worker: Worker) => {
     const score = scoreOf(worker);
-    setBookingStatus(prev => ({ ...prev, [worker.id]: 'sending' }));
-    setMessages(prev => ({ ...prev, [worker.id]: null }));
+    setBookingStatus((prev) => ({ ...prev, [worker.id]: 'sending' }));
+    setMessages((prev) => ({ ...prev, [worker.id]: null }));
     try {
-      const clientId = clientProfile?.id || localStorage.getItem('userId') || `guest-user-${Date.now()}`;
-      if (!localStorage.getItem('userId')) localStorage.setItem('userId', clientId);
+      const userId = localStorage.getItem('helphome_user_id') || '';
       const response = await fetch('/api/bookings', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ clientId, workerId: worker.id, serviceType: 'Standard Support', timestamp: new Date().toISOString() }),
+        headers: { 'Content-Type': 'application/json', 'x-user-id': userId },
+        body: JSON.stringify({ workerId: worker.id, serviceType: 'Standard Support' }),
       });
       if (!response.ok) throw new Error('Booking failed');
       const result = await response.json();
-      setBookingStatus(prev => ({ ...prev, [worker.id]: 'success' }));
-      setMessages(prev => ({
+      setBookingStatus((prev) => ({ ...prev, [worker.id]: 'success' }));
+      setMessages((prev) => ({
         ...prev,
-        [worker.id]: { text: `✅ Request sent to ${worker.name}! (Wellness Match: ${result.matchScore ?? score ?? 0}%)`, type: 'success' }
+        [worker.id]: { text: `✅ Request sent to ${worker.name}! (Wellness Match: ${result.matchScore ?? score}%)`, type: 'success' },
       }));
     } catch (err: any) {
       console.error('❌ Booking error:', err);
-      setBookingStatus(prev => ({ ...prev, [worker.id]: 'error' }));
-      setMessages(prev => ({ ...prev, [worker.id]: { text: 'Failed to send request. Try again.', type: 'error' } }));
+      setBookingStatus((prev) => ({ ...prev, [worker.id]: 'error' }));
+      setMessages((prev) => ({ ...prev, [worker.id]: { text: 'Failed to send request. Try again.', type: 'error' } }));
     }
   };
 
   if (loading) return <div className="card">Loading support workers...</div>;
-  if (error) return <div className="card flash error">Error: {error}</div>;
+  if (error) return <div className="flash error">{error}</div>;
+
+  // ---- Filters ----
+  const clientInterests = clientProfile?.interests || [];
+
+  const filteredWorkers = workers.filter((w) => {
+    const score = scoreOf(w);
+    if (matchFilter === '50' && score < 50) return false;
+    if (matchFilter === '75' && score < 75) return false;
+    if (interestFilter !== 'all' && !w.interests.includes(interestFilter)) return false;
+    return true;
+  });
+
+  const matchCount = (min: number) => workers.filter((w) => scoreOf(w) >= min).length;
 
   return (
     <div className="page">
@@ -95,44 +112,60 @@ export default function Dashboard() {
         </div>
       </header>
 
-      <section>
-        <h2>Choose Your Plan</h2>
-        <p className="hub-explain" style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
-          All new pilot accounts start on our free Starter plan. Upgrade to Premium anytime for priority matching and 24/7 support.
-        </p>
-        <div className="plans-grid">
-          <article className="plan">
-            <h3>Starter</h3>
-            <div className="plan-price">Free</div>
-            <ul className="plan-features">
-              <li>✅ Browse all workers</li>
-              <li>✅ Standard Matching</li>
-              <li>✅ 0% Platform Fees</li>
-              <li className="muted">❌ Priority Support</li>
-              <li className="muted">❌ Gold Matches (&gt;80%)</li>
-            </ul>
-            <button className="btn btn-block">Current Plan</button>
-          </article>
-          <article className="plan plan-premium">
-            <span className="plan-flag">Recommended</span>
-            <h3>Premium</h3>
-            <div className="plan-price">$19<span>/mo</span></div>
-            <ul className="plan-features">
-              <li>✅ <strong>Everything in Starter</strong></li>
-              <li>✅ <strong>Gold Matches</strong> (80%+ Score)</li>
-              <li>✅ Priority 24/7 Support</li>
-              <li>✅ Advanced Background Checks</li>
-              <li>✅ Cancel Anytime</li>
-            </ul>
-            <button className="btn btn-block btn-upgrade">Upgrade Now</button>
-          </article>
-        </div>
-      </section>
+      {/* Plans section — hidden for pilot; restore by removing the false && wrapper */}
+      {false && (
+        <section>
+          <h2>Choose Your Plan</h2>
+          <div className="plans-grid">
+            <article className="plan">
+              <h3>Starter</h3>
+              <div className="plan-price">Free</div>
+            </article>
+          </div>
+        </section>
+      )}
 
       <section>
-        <h2>Available Support Workers</h2>
+        <h2>Available Support Workers <span className="queue-count">{filteredWorkers.length}</span></h2>
+
+        <div className="hub-switcher">
+          {([
+            { key: 'all', label: 'All Matches' },
+            { key: '50', label: `50%+ (${matchCount(50)})` },
+            { key: '75', label: `75%+ (${matchCount(75)})` },
+          ] as const).map((f) => (
+            <button
+              key={f.key}
+              className={`hub-tab ${matchFilter === f.key ? 'active' : ''}`}
+              onClick={() => setMatchFilter(f.key as MatchFilter)}
+            >
+              {f.label}
+            </button>
+          ))}
+        </div>
+
+        {clientInterests.length > 0 && (
+          <div className="hub-switcher">
+            <button
+              className={`hub-tab ${interestFilter === 'all' ? 'active' : ''}`}
+              onClick={() => setInterestFilter('all')}
+            >
+              All Interests
+            </button>
+            {clientInterests.map((i) => (
+              <button
+                key={i}
+                className={`hub-tab ${interestFilter === i ? 'active' : ''}`}
+                onClick={() => setInterestFilter(i)}
+              >
+                {i.charAt(0).toUpperCase() + i.slice(1)}
+              </button>
+            ))}
+          </div>
+        )}
+
         <div className="worker-grid">
-          {workers.map((worker) => {
+          {filteredWorkers.map((worker) => {
             const status = bookingStatus[worker.id];
             const message = messages[worker.id];
             const score = scoreOf(worker);
@@ -141,9 +174,7 @@ export default function Dashboard() {
                 <div>
                   <div className="worker-head">
                     <h3>{worker.name}</h3>
-                    {score !== undefined && (
-                      <span className={`match-badge ${score > 50 ? 'high' : 'low'}`}>{score}% Match</span>
-                    )}
+                    <span className={`match-badge ${score > 50 ? 'high' : 'low'}`}>{score}% Match</span>
                   </div>
                   <p className="match-reason">{getMatchReason(worker)}</p>
                   <p className="worker-bio">{worker.bio}</p>
@@ -166,7 +197,7 @@ export default function Dashboard() {
             );
           })}
         </div>
-        {workers.length === 0 && !loading && <div className="card">No workers found.</div>}
+        {filteredWorkers.length === 0 && <div className="card">No workers match these filters.</div>}
       </section>
     </div>
   );

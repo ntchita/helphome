@@ -1162,11 +1162,11 @@ app.post('/api/auth/register', async (c) => {
       .update(schema.signupLeads)
       .set({
         name,
-        orgName: body.orgName ? String(body.orgName) : null,
-        interests: Array.isArray(body.interests) ? body.interests : null,
-        fundingStream,
-        planManagerName,
-        preferredWorkerId,
+        orgName: body.orgName ? String(body.orgName) : existing[0].orgName,
+        interests: Array.isArray(body.interests) ? body.interests : existing[0].interests,
+        fundingStream: fundingStream ?? existing[0].fundingStream,
+        planManagerName: planManagerName ?? existing[0].planManagerName,
+        preferredWorkerId: preferredWorkerId ?? existing[0].preferredWorkerId,
       })
       .where(eq(schema.signupLeads.id, existing[0].id));
       return c.json({

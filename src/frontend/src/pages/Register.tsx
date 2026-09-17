@@ -4,7 +4,7 @@ import { useNavigate, Link } from 'react-router-dom';
 type Door = 'client' | 'worker' | 'coordinator' | null;
 
 interface RegWorker {
-  id: number;
+  id: string;
   name: string;
   role: string;
   bio: string;
@@ -40,8 +40,8 @@ export default function Register() {
       fetch('/api/interests').then((r) => r.json()),
     ])
       .then(([w, i]) => {
-        setWorkers(w);
-        setInterests(i);
+        if (Array.isArray(w)) setWorkers(w);
+        if (Array.isArray(i)) setInterests(i);
       })
       .catch(() => setError('Cannot reach the server. Is the API running?'))
       .finally(() => setLoading(false));
@@ -91,22 +91,29 @@ export default function Register() {
 
     return (
       <div className="register-page">
-        <h1>Welcome to CareWork, {name || 'there'}!</h1>
-        <p className="lead">We matched you before you finished your coffee. Based on your interests, here are your first support workers:</p>
+        <h1>Thanks, {name || 'there'}!</h1>
+        <p className="lead">
+          Your application is in. We'll email <strong>{email || 'you'}</strong> once your account is verified — usually within 24 hours.
+        </p>
+        <p className="hub-note" style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
+          In the meantime, here's a preview of the kind of workers you'll be matched with:
+        </p>
         <section className="worker-grid">
           {ranked.map((w) => (
             <article className="card worker-card" key={w.id}>
               <div className="worker-head">
                 <h3>{w.name}</h3>
-                <span className={`match-badge ${w.pct >= 60 ? 'gold' : ''}`}>{w.pct}% Match</span>
+                <span className={`match-badge ${w.pct >= 60 ? 'high' : 'low'}`}>{w.pct}% Match</span>
               </div>
               <p className="worker-role">{w.role}</p>
               <p className="worker-bio">{w.bio}</p>
             </article>
           ))}
         </section>
-        <button className="btn btn-block" onClick={() => navigate('/login')}>Go to login</button>
-        <p className="hub-explain">Matches use representative worker data. Real accounts are created during pilot onboarding.</p>
+        <button className="btn btn-block" onClick={() => navigate('/')}>Back to home</button>
+        <p className="hub-explain" style={{ textAlign: 'center', marginTop: '1rem' }}>
+          Preview uses representative worker data. Real matches are shown once your account is created during pilot onboarding.
+        </p>
       </div>
     );
   }
@@ -114,15 +121,19 @@ export default function Register() {
   if (done && door === 'worker') {
     return (
       <div className="register-page">
-        <h1>Welcome aboard, {name || 'there'}!</h1>
-        <p className="lead">Here's your promise — the deal, before we ask for anything else:</p>
+        <h1>Thanks, {name || 'there'}!</h1>
+        <p className="lead">
+          Your application is in. We'll email <strong>{email || 'you'}</strong> once verification is complete — usually within 24 hours.
+        </p>
+        <p className="hub-note" style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
+          Here's our promise to you — the deal, before anything else:
+        </p>
         <ul className="promise-list">
           <li><strong>Your rate is your rate</strong> — 0% platform fees, forever.</li>
           <li><strong>We cap you at 85%</strong> — overbooked workers burn out; we won't let that happen to you.</li>
           <li><strong>Decline without penalty</strong> — never affects your rating. No penalty, ever.</li>
         </ul>
-        <p className="hub-note">Verification starts now. Workers with valid checks are activated within 24 hours.</p>
-        <button className="btn btn-block" onClick={() => navigate('/login')}>Go to login</button>
+        <button className="btn btn-block" onClick={() => navigate('/')}>Back to home</button>
       </div>
     );
   }
@@ -131,8 +142,12 @@ export default function Register() {
     return (
       <div className="register-page">
         <h1>Thank you, {name || 'there'}!</h1>
-        <p className="lead">We've noted {org || 'your organisation'}'s interest. Pilot coordinators are invited personally — we'll be in touch shortly via email.</p>
-        <p className="hub-note">Bring your clients — we supply verified, wellness-checked workers. You keep the relationship.</p>
+        <p className="lead">
+          We've noted <strong>{org || 'your organisation'}</strong>'s interest. Pilot coordinators are invited personally — we'll be in touch shortly via email.
+        </p>
+        <p className="hub-note" style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
+          Bring your clients — we supply verified, wellness-checked workers. You keep the relationship.
+        </p>
         <button className="btn btn-block" onClick={() => navigate('/')}>Back to home</button>
       </div>
     );
@@ -162,7 +177,7 @@ export default function Register() {
               </div>
             )}
           </div>
-          <button type="submit" className="btn btn-block" disabled={saving}>{saving ? 'Saving...' : 'Find my matches'}</button>
+          <button type="submit" className="btn btn-block" disabled={saving}>{saving ? 'Saving...' : 'Submit application'}</button>
         </form>
       </div>
     );
@@ -191,7 +206,7 @@ export default function Register() {
           <div><label>NDIS Worker Screening Check</label>
             <select required defaultValue=""><option value="" disabled>Select…</option><option>Already hold one</option><option>Willing to obtain one</option></select>
           </div>
-          <button type="submit" className="btn btn-block" disabled={saving}>{saving ? 'Saving...' : 'Start verification'}</button>
+          <button type="submit" className="btn btn-block" disabled={saving}>{saving ? 'Saving...' : 'Submit application'}</button>
         </form>
       </div>
     );

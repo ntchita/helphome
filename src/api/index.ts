@@ -1141,8 +1141,27 @@ app.post('/api/auth/register', async (c) => {
     : 'client';
 
   const name = String(body.name || '').trim();
-  const email = String(body.email || '').trim();
+  const email = String(body.email || '').trim().toLowerCase();
   if (!name || !email) return c.json({ error: 'Missing name or email' }, 400);
+
+  // Same email + same door → update existing lead (no duplicate)
+  const existing = await db
+    .select()
+    .from(schema.signupLeads)
+    .where(and(eq(schema.signupLeads.email, email), eq(schema.signupLeads.door, door)))
+    .limit(1);
+
+  if (existing.length > 0) {
+    await db
+      .update(schema.signupLeads)
+      .set({
+        name,
+        orgName: body.orgName ? String(body.orgName) : null,
+        interests: Array.isArray(body.interests) ? body.interests : null,
+      })
+      .where(eq(schema.signupLeads.id, existing[0].id));
+    return c.json({ success: true, message: 'Application updated (already on file)', updated: true }, 200);
+  }
 
   await db.insert(schema.signupLeads).values({
     door,

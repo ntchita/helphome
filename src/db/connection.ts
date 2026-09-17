@@ -11,37 +11,67 @@ type Database = PgliteDatabase<typeof schema> | PostgresJsDatabase<typeof schema
 let cached: Database | undefined;
 let mode: 'pglite' | 'postgres' = 'pglite';
 
-async function loadDbUrl(): Promise<string> {
-  const g = globalThis as any;
-  if (g.__HYPERDRIVE_URL) return g.__HYPERDRIVE_URL;
-  if (typeof process !== 'undefined' && process.env?.DATABASE_URL) return process.env.DATABASE_URL;
+type DbMode = 'local' | 'remote';
+
+async function readDevVars(): Promise<Record<string, string>> {
   try {
     const { readFileSync } = await import('fs');
     const raw = readFileSync('.dev.vars', 'utf-8');
-    const line = raw.split('\n').find((l) => l.startsWith('DATABASE_URL='));
-    if (line) return line.slice('DATABASE_URL='.length).trim();
-  } catch {}
-  return '';
+    const out: Record<string, string> = {};
+    for (const line of raw.split('\n')) {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed.startsWith('#')) continue;
+      const eq = trimmed.indexOf('=');
+      if (eq === -1) continue;
+      out[trimmed.slice(0, eq)] = trimmed.slice(eq + 1).trim();
+    }
+    return out;
+  } catch {
+    return {};
+  }
+}
+
+function resolveMode(devVars: Record<string, string>): DbMode {
+  // Priority: process.env → .dev.vars → default 'local' (safe)
+  const raw = (typeof process !== 'undefined' && process.env?.DB_MODE) || devVars.DB_MODE || 'local';
+  return raw === 'remote' ? 'remote' : 'local';
+}
+
+function resolveDbUrl(devVars: Record<string, string>): string {
+  const g = globalThis as any;
+  if (g.__HYPERDRIVE_URL) return g.__HYPERDRIVE_URL;
+  if (typeof process !== 'undefined' && process.env?.DATABASE_URL) return process.env.DATABASE_URL;
+  return devVars.DATABASE_URL || '';
 }
 
 export async function getDb(): Promise<Database> {
-  const url = await loadDbUrl();
   const inWorkers =
     typeof (globalThis as any).__HYPERDRIVE_URL === 'string' &&
     (globalThis as any).__HYPERDRIVE_URL.length > 0;
 
-  if (url && url.startsWith('postgres')) {
-    mode = 'postgres';
+  if (cached) return cached;
 
-    if (inWorkers) {
-      // Workers: create a fresh client per request — connections don't survive
-      // between requests, so caching the client causes "connection closed" errors.
-      const client = postgres(url, { max: 1, prepare: false, idle_timeout: 5 });
-      return drizzlePg(client, { schema });
+  const devVars = await readDevVars();
+  const dbMode = resolveMode(devVars);
+  const url = resolveDbUrl(devVars);
+
+  // Workers ALWAYS use Hyperdrive (production) — ignore DB_MODE
+  if (inWorkers) {
+    if (!url || !url.startsWith('postgres')) {
+      throw new Error('Workers require HYPERDRIVE connection string');
     }
+    mode = 'postgres';
+    // Fresh client per request — Workers don't keep connections alive
+    const client = postgres(url, { max: 1, prepare: false, idle_timeout: 5 });
+    return drizzlePg(client, { schema });
+  }
 
-    // Node (local backend): cache is safe — long-lived process
-    if (cached) return cached;
+  // Local + DB_MODE=remote → Supabase (parity testing)
+  if (dbMode === 'remote') {
+    if (!url || !url.startsWith('postgres')) {
+      throw new Error('DB_MODE=remote but DATABASE_URL is missing or invalid in .dev.vars');
+    }
+    mode = 'postgres';
     const client = postgres(url, { max: 5, prepare: false });
     cached = drizzlePg(client, { schema });
     try {
@@ -51,8 +81,8 @@ export async function getDb(): Promise<Database> {
     return cached;
   }
 
-  // PGlite local fallback
-  if (cached) return cached;
+  // Local + DB_MODE=local (default) → PGlite
+  mode = 'pglite';
   const client = new PGlite((typeof process !== 'undefined' && process.env?.PGDATA) || '.data/pg');
   cached = drizzlePglite(client, { schema });
   await migratePglite(cached, { migrationsFolder: 'drizzle' });

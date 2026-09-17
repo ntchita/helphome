@@ -39,9 +39,7 @@ const revenue = [
   { month: 'Jul', amount: 760 }, { month: 'Aug', amount: 940 }, { month: 'Sep', amount: 1180 },
 ];
 
-// In-memory stubs (to be migrated to DB post-pilot)
-const signups: any[] = [];
-const welfareChats: Record<string, boolean> = {};
+// (no in-memory stubs remaining — all state is DB-backed)
 
 // =====================================================================
 // ROUTES
@@ -1134,10 +1132,26 @@ app.post('/api/login', async (c) => {
   return c.json({ ok: true, userId: user.id, role: user.role, workerContexts });
 });
 
-// --- In-memory stubs (to be migrated to DB) ---
 app.post('/api/auth/register', async (c) => {
+  const db = await getDb();
   const body = await c.req.json();
-  signups.push({ id: signups.length + 1, ...body, createdAt: new Date().toISOString() });
+
+  const door = ['client', 'worker', 'coordinator'].includes(String(body.door))
+    ? String(body.door) as 'client' | 'worker' | 'coordinator'
+    : 'client';
+
+  const name = String(body.name || '').trim();
+  const email = String(body.email || '').trim();
+  if (!name || !email) return c.json({ error: 'Missing name or email' }, 400);
+
+  await db.insert(schema.signupLeads).values({
+    door,
+    name,
+    email,
+    orgName: body.orgName ? String(body.orgName) : null,
+    interests: Array.isArray(body.interests) ? body.interests : null,
+  });
+
   return c.json({ success: true, message: 'Registered (pilot waitlist)' }, 201);
 });
 

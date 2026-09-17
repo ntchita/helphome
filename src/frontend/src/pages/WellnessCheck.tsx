@@ -23,9 +23,10 @@ export default function WellnessCheck() {
     setSaving(true);
     setError('');
     try {
+      const userId = localStorage.getItem('helphome_user_id') || '';
       const res = await fetch('/api/wellness', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'x-user-id': userId },
         body: JSON.stringify({ logType, score, notes }),
       });
       if (!res.ok) throw new Error('Server rejected the check-in');
@@ -61,7 +62,7 @@ export default function WellnessCheck() {
         <div>
           <label>This check-in is about:</label>
           <select value={logType} onChange={(e) => setLogType(e.target.value as CheckType)}>
-            <option value="mood">Mood & Wellbeing</option>
+            <option value="mood">Mood &amp; Wellbeing</option>
             <option value="goals">Goal Progress</option>
             <option value="satisfaction">Care Satisfaction</option>
           </select>

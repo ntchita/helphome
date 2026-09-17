@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 interface Worker {
   id: string;
@@ -22,6 +23,7 @@ interface BookingMessage { text: string; type: 'success' | 'error' | 'info'; }
 type MatchFilter = 'all' | '50' | '75';
 
 export default function Dashboard() {
+  const navigate = useNavigate();
   const [workers, setWorkers] = useState<Worker[]>([]);
   const [clientProfile, setClientProfile] = useState<ClientProfile | null>(null);
   const [loading, setLoading] = useState(true);
@@ -33,9 +35,17 @@ export default function Dashboard() {
 
   useEffect(() => {
     const userId = localStorage.getItem('helphome_user_id');
+    if (!userId) { navigate('/login', { replace: true }); return; }
+
     Promise.all([
-      fetch('/api/workers', { headers: { 'x-user-id': userId || '' } }).then((r) => r.json()),
-      fetch('/api/client-profile', { headers: { 'x-user-id': userId || '' } }).then((r) => r.json()),
+      fetch('/api/workers', { headers: { 'x-user-id': userId } }).then(async (r) => {
+        if (r.status === 401 || r.status === 404) throw new Error('SESSION_EXPIRED');
+        return r.json();
+      }),
+      fetch('/api/client-profile', { headers: { 'x-user-id': userId } }).then(async (r) => {
+        if (r.status === 401 || r.status === 404) throw new Error('SESSION_EXPIRED');
+        return r.json();
+      }),
     ])
       .then(([w, p]) => {
         if (Array.isArray(w)) setWorkers(w);
@@ -43,11 +53,19 @@ export default function Dashboard() {
         setError(null);
       })
       .catch((err: any) => {
+        if (err.message === 'SESSION_EXPIRED') {
+          localStorage.removeItem('helphome_logged_in');
+          localStorage.removeItem('helphome_role');
+          localStorage.removeItem('helphome_user_id');
+          localStorage.removeItem('helphome_worker_contexts');
+          navigate('/login', { replace: true });
+          return;
+        }
         console.error('❌ Failed to fetch dashboard data:', err);
         setError(err.message);
       })
       .finally(() => setLoading(false));
-  }, []);
+  }, [navigate]);
 
   const scoreOf = (w: Worker) => w.wellnessMatch ?? w.wellnessMatchScore ?? 0;
 
@@ -87,7 +105,6 @@ export default function Dashboard() {
   if (loading) return <div className="card">Loading support workers...</div>;
   if (error) return <div className="flash error">{error}</div>;
 
-  // ---- Filters ----
   const clientInterests = clientProfile?.interests || [];
 
   const filteredWorkers = workers.filter((w) => {
@@ -111,19 +128,6 @@ export default function Dashboard() {
           <div className="stat-chip"><strong>Wellness</strong><span>Match Scoring</span></div>
         </div>
       </header>
-
-      {/* Plans section — hidden for pilot; restore by removing the false && wrapper */}
-      {false && (
-        <section>
-          <h2>Choose Your Plan</h2>
-          <div className="plans-grid">
-            <article className="plan">
-              <h3>Starter</h3>
-              <div className="plan-price">Free</div>
-            </article>
-          </div>
-        </section>
-      )}
 
       <section>
         <h2>Available Support Workers <span className="queue-count">{filteredWorkers.length}</span></h2>

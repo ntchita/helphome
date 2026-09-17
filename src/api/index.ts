@@ -32,6 +32,15 @@ app.use('/*', cors({
   credentials: true,
 }));
 
+// Reject malformed x-user-id early so PGlite never sees a bad UUID
+app.use('/api/*', async (c, next) => {
+  const userId = c.req.header('x-user-id');
+  if (userId && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(userId)) {
+    return c.json({ error: 'User not found' }, 404);
+  }
+  await next();
+});
+
 // Revenue is deliberately not from our DB — money is owned by Xero (via VisualCare).
 // TODO: replace with live Xero/VisualCare sync post-pilot.
 const revenue = [
@@ -1219,6 +1228,18 @@ app.post('/api/wellness', async (c) => {
   });
 
   return c.json({ success: true, message: 'Wellness check recorded' }, 201);
+});
+
+// DEV-ONLY: table counts for smoke tests. Safe to remove before production.
+app.get('/api/_test/db/counts', async (c) => {
+  const db = await getDb();
+  const tables = ['users', 'signupLeads', 'shifts', 'wellnessLogs', 'welfareChats', 'workerProfiles'] as const;
+  const out: Record<string, number> = {};
+  for (const t of tables) {
+    const rows = await db.select().from((schema as any)[t]);
+    out[t] = rows.length;
+  }
+  return c.json(out);
 });
 
 export default app;

@@ -14,10 +14,11 @@ CREATE TYPE "public"."shift_status" AS ENUM('requested', 'offered', 'accepted', 
 CREATE TYPE "public"."sync_direction" AS ENUM('pull', 'push');--> statement-breakpoint
 CREATE TYPE "public"."sync_outcome" AS ENUM('success', 'failed', 'skipped');--> statement-breakpoint
 CREATE TYPE "public"."verification_status" AS ENUM('pending', 'verified', 'rejected');--> statement-breakpoint
+CREATE TYPE "public"."worker_type" AS ENUM('independent', 'coordinator');--> statement-breakpoint
 CREATE TABLE "client_profiles" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"user_id" uuid NOT NULL,
-	"tenant_id" uuid NOT NULL,
+	"tenant_id" uuid,
 	"full_name" text NOT NULL,
 	"dob" date NOT NULL,
 	"address" text NOT NULL,
@@ -174,7 +175,8 @@ CREATE TABLE "worker_documents" (
 CREATE TABLE "worker_profiles" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"user_id" uuid NOT NULL,
-	"tenant_id" uuid NOT NULL,
+	"tenant_id" uuid,
+	"worker_type" "worker_type" DEFAULT 'independent' NOT NULL,
 	"abn" text,
 	"bio" text,
 	"skills" jsonb,

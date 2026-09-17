@@ -6,7 +6,7 @@ interface DemoAccount { label: string; email: string; }
 const HOMES: { [role: string]: string } = {
   client: '/dashboard',
   worker: '/my-hub',
-  manager: '/manager',
+  coordinator: '/coordinator',
   admin: '/admin',
 };
 
@@ -45,6 +45,12 @@ export default function Login({ onLogin }: { onLogin: () => void }) {
       if (result.ok && result.role) {
         localStorage.setItem('helphome_logged_in', 'true');
         localStorage.setItem('helphome_role', result.role);
+        if (result.userId) localStorage.setItem('helphome_user_id', result.userId);
+        if (result.workerContexts) {
+          localStorage.setItem('helphome_worker_contexts', JSON.stringify(result.workerContexts));
+        } else {
+          localStorage.removeItem('helphome_worker_contexts');
+        }
         onLogin();
         navigate(HOMES[result.role]);
       } else {
@@ -84,7 +90,7 @@ export default function Login({ onLogin }: { onLogin: () => void }) {
         </button>
       </form>
       <div className="login-footer">
-        <p>New to HelpHome? Accounts are created during pilot onboarding.</p>
+        <p>New to CareWork? Accounts are created during pilot onboarding.</p>
       </div>
     </div>
   );

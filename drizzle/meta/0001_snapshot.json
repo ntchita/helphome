@@ -1,6 +1,6 @@
 {
-  "id": "d6f5b62f-839d-4134-8082-6196c58ecc8e",
-  "prevId": "00000000-0000-0000-0000-000000000000",
+  "id": "011f8338-3335-4520-bbd5-3fda481cf0e5",
+  "prevId": "d6f5b62f-839d-4134-8082-6196c58ecc8e",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -572,7 +572,7 @@
           "name": "tenant_id",
           "type": "uuid",
           "primaryKey": false,
-          "notNull": true
+          "notNull": false
         },
         "client_id": {
           "name": "client_id",

@@ -4,23 +4,21 @@ import Home from './pages/Home';
 import Dashboard from './pages/Dashboard';
 import WellnessCheck from './pages/WellnessCheck';
 import WorkerHome from './pages/WorkerHome';
-import ManagerHub from './pages/ManagerHub';
+import CoordinatorHub from './pages/CoordinatorHub';
 import AdminDashboard from './pages/AdminDashboard';
 import AdminHome from './pages/AdminHome';
 import ClientRequests from './pages/ClientRequests';
 import Login from './pages/Login';
 import Register from './pages/Register';
 
-type Role = 'client' | 'worker' | 'manager' | 'admin' | null;
+type Role = 'client' | 'worker' | 'coordinator' | 'admin' | null;
 
-// Bump this on every production deploy: sessions created by older builds
-// are cleared automatically on next page load.
-const BUILD_ID = '11-09-2026-charts';
+const BUILD_ID = '16-09-2026-carework';
 
 const ROLE_HOME: { [r: string]: string } = {
   client: '/dashboard',
   worker: '/my-hub',
-  manager: '/manager',
+  coordinator: '/coordinator',
   admin: '/admin',
 };
 
@@ -36,17 +34,17 @@ function App() {
       ? (localStorage.getItem('helphome_role') as Role)
       : null;
   });
-
   const location = useLocation();
   const [menuOpen, setMenuOpen] = useState(false);
-  
+
   const logout = () => {
     localStorage.removeItem('helphome_logged_in');
     localStorage.removeItem('helphome_role');
+    localStorage.removeItem('helphome_user_id');
+    localStorage.removeItem('helphome_worker_contexts');
     setRole(null);
   };
 
-  const allow = (needed: Role) => role === needed;
   const bounce = <Navigate to={role ? ROLE_HOME[role] : '/login'} replace />;
 
   return (
@@ -54,13 +52,12 @@ function App() {
       <div className="topbar">
         <div className="topbar-content">
           <span>📞 1800 849 279</span>
-          <span>✉️ admin@helphome.au</span>
+          <span>✉️ admin@carework.au</span>
         </div>
       </div>
-
       <nav>
         <div className="nav-content">
-          <Link to="/" className="brand">HelpHome</Link>
+          <Link to="/" className="brand">CareWork</Link>
           <button className="nav-toggle" onClick={() => setMenuOpen(!menuOpen)} aria-label="Menu">☰</button>
           <div className={`nav-links ${menuOpen ? 'open' : ''}`} onClick={() => setMenuOpen(false)}>
             <Link to="/" className={location.pathname === '/' ? 'active' : ''}>Home</Link>
@@ -72,9 +69,9 @@ function App() {
             )}
             {role === 'admin' && <Link to="/admin" className={location.pathname === '/admin' ? 'active' : ''}>Admin Dashboard</Link>}
             {role === 'worker' && <Link to="/my-hub" className={location.pathname === '/my-hub' ? 'active' : ''}>My Hub</Link>}
-            {(role === 'manager' || role === 'admin') && (
+            {(role === 'coordinator' || role === 'admin') && (
               <>
-                <Link to="/manager" className={location.pathname === '/manager' ? 'active' : ''}>Manager Hub</Link>
+                <Link to="/coordinator" className={location.pathname === '/coordinator' ? 'active' : ''}>Coordinator Hub</Link>
                 <Link to="/verification" className={location.pathname === '/verification' ? 'active' : ''}>Verification</Link>
               </>
             )}
@@ -82,26 +79,26 @@ function App() {
             {role ? (
               <Link to="/" onClick={logout}>Log out</Link>
             ) : (
-			  <>
-              <Link to="/login" className={location.pathname === '/login' ? 'active' : ''}>Login</Link>
-			  <Link to="/register" className={location.pathname === '/register' ? 'active' : ''}>Register</Link>
-			  </>
-			)}
+              <>
+                <Link to="/login" className={location.pathname === '/login' ? 'active' : ''}>Login</Link>
+                <Link to="/register" className={location.pathname === '/register' ? 'active' : ''}>Register</Link>
+              </>
+            )}
           </div>
         </div>
       </nav>
-
       <main className="page-container">
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/login" element={<Login onLogin={() => setRole(localStorage.getItem('helphome_role') as Role)} />} />
-		  <Route path="/register" element={<Register />} />
+          <Route path="/register" element={<Register />} />
           <Route path="/dashboard" element={role === 'client' ? <Dashboard /> : bounce} />
           <Route path="/wellness" element={role === 'client' ? <WellnessCheck /> : bounce} />
           <Route path="/my-hub" element={role === 'worker' ? <WorkerHome /> : bounce} />
-          <Route path="/manager" element={(role === 'manager' || role === 'admin') ? <ManagerHub /> : bounce} />
+          <Route path="/coordinator" element={(role === 'coordinator' || role === 'admin') ? <CoordinatorHub /> : bounce} />
+          <Route path="/manager" element={<Navigate to="/coordinator" replace />} />
           <Route path="/admin" element={role === 'admin' ? <AdminHome /> : bounce} />
-          <Route path="/verification" element={(role === 'manager' || role === 'admin') ? <AdminDashboard /> : bounce} />
+          <Route path="/verification" element={(role === 'coordinator' || role === 'admin') ? <AdminDashboard /> : bounce} />
           <Route path="/requests" element={role === 'admin' ? <ClientRequests /> : bounce} />
           <Route path="*" element={bounce} />
         </Routes>

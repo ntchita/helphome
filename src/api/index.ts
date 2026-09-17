@@ -1,10 +1,28 @@
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
-import { eq } from 'drizzle-orm';
+import { eq, and, inArray, desc } from 'drizzle-orm';
 import { getDb, schema } from '../db/connection.ts';
 import { calculateWellnessMatch, rankWorkers } from './utils/matcher.ts';
 
 const app = new Hono();
+
+const hoursBetween = (a: Date | string, b: Date | string) =>
+  (new Date(b).getTime() - new Date(a).getTime()) / 3_600_000;
+
+const formatWhen = (a: Date | string, b: Date | string) => {
+  const s = new Date(a);
+  const e = new Date(b);
+  const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${days[s.getDay()]} ${pad(s.getHours())}:${pad(s.getMinutes())}–${pad(e.getHours())}:${pad(e.getMinutes())}`;
+};
+
+const timeAgo = (d: Date | string, now: number) => {
+  const diff = Math.floor((now - new Date(d).getTime()) / 86_400_000);
+  if (diff <= 0) return 'Today';
+  if (diff === 1) return 'Yesterday';
+  return `${diff} days ago`;
+};
 
 // Enable CORS for frontend
 app.use('/*', cors({
@@ -133,7 +151,7 @@ const welfareChats: Record<string, boolean> = {};
 // =====================================================================
 // ROUTES
 // =====================================================================
-app.get('/', (c) => c.json({ message: 'HelpHome API Active', version: '2.0.0' }));
+app.get('/', (c) => c.json({ message: 'CareWork API Active', version: '2.0.0' }));
 
 // --- Workers & Matching ---
 app.get('/api/workers', (c) => {
@@ -182,33 +200,275 @@ app.post('/api/bookings', async (c) => {
 
 app.get('/api/requests', (c) => c.json(clientRequests));
 
-// --- Worker Hub ---
-app.get('/api/worker-hub', (c) => c.json(workerHub));
-app.get('/api/checkins', (c) => c.json(checkinHistory));
+// --- Worker Hub (DB-backed, returns both contexts) ---
+app.get('/api/worker-hub', async (c) => {
+  const userId = c.req.header('x-user-id');
+  if (!userId) return c.json({ error: 'Unauthenticated' }, 401);
+
+  const db = await getDb();
+  const [user] = await db.select().from(schema.users).where(eq(schema.users.id, userId)).limit(1);
+  if (!user) return c.json({ error: 'User not found' }, 404);
+  if (user.role !== 'worker') return c.json({ error: 'Not a worker' }, 403);
+
+  const profiles = await db.select().from(schema.workerProfiles).where(eq(schema.workerProfiles.userId, user.id));
+  const indProfile = profiles.find((p) => p.workerType === 'independent');
+  const coordProfile = profiles.find((p) => p.workerType === 'coordinator');
+
+  const contexts: string[] = [];
+  if (coordProfile) contexts.push('coordinator');
+  if (indProfile) contexts.push('independent');
+
+  // --- marketplace ---
+  let marketplace: any = null;
+  if (indProfile) {
+    const rows = await db
+      .select({ shift: schema.shifts, clientName: schema.clientProfiles.fullName })
+      .from(schema.shifts)
+      .leftJoin(schema.clientProfiles, eq(schema.shifts.clientId, schema.clientProfiles.id))
+      .where(and(eq(schema.shifts.workerId, indProfile.id), eq(schema.shifts.status, 'offered')))
+      .orderBy(desc(schema.shifts.createdAt))
+      .limit(1);
+
+    const bookedShifts = await db.select().from(schema.shifts).where(
+      and(eq(schema.shifts.workerId, indProfile.id), inArray(schema.shifts.status, ['accepted', 'in_progress', 'completed']))
+    );
+    const booked = bookedShifts.reduce((sum, sh) => sum + hoursBetween(sh.startTime, sh.endTime), 0);
+
+    let request = null;
+    if (rows[0]) {
+      const sh = rows[0].shift;
+      request = {
+        id: sh.id,
+        client: rows[0].clientName || 'Client',
+        service: sh.serviceType || 'Support',
+        when: formatWhen(sh.startTime, sh.endTime),
+        matchedOn: (sh.matchedOn || []).join(', '),
+        matchPct: sh.matchScore || 0,
+        status: sh.status,
+      };
+    }
+
+    marketplace = {
+      profileId: indProfile.id,
+      capacity: { booked: Math.round(booked), total: indProfile.capacityTotal },
+      request,
+    };
+  }
+
+  // --- roster ---
+  let roster: any = null;
+  if (coordProfile) {
+    const rows = await db
+      .select({ shift: schema.shifts, clientName: schema.clientProfiles.fullName })
+      .from(schema.shifts)
+      .leftJoin(schema.clientProfiles, eq(schema.shifts.clientId, schema.clientProfiles.id))
+      .where(and(
+        eq(schema.shifts.workerId, coordProfile.id),
+        inArray(schema.shifts.status, ['offered', 'accepted', 'in_progress'])
+      ))
+      .orderBy(desc(schema.shifts.startTime));
+
+    const shifts = rows.map((r) => ({
+      id: r.shift.id,
+      client: r.clientName || 'Client',
+      service: r.shift.serviceType || 'Support',
+      when: formatWhen(r.shift.startTime, r.shift.endTime),
+      status: r.shift.status === 'offered' ? 'pending' : r.shift.status,
+      location: r.shift.locationAddress || '',
+    }));
+
+    const booked = rows
+      .filter((r) => r.shift.status === 'accepted' || r.shift.status === 'in_progress')
+      .reduce((sum, r) => sum + hoursBetween(r.shift.startTime, r.shift.endTime), 0);
+
+    let coordinatorName = 'Coordinator';
+    let coordinatorEmail = '';
+    if (coordProfile.tenantId) {
+      const [tenant] = await db.select().from(schema.tenants).where(eq(schema.tenants.id, coordProfile.tenantId)).limit(1);
+      if (tenant) coordinatorName = tenant.name;
+      const [coord] = await db.select().from(schema.users).where(and(eq(schema.users.tenantId, coordProfile.tenantId), eq(schema.users.role, 'coordinator'))).limit(1);
+      if (coord) coordinatorEmail = coord.email;
+    }
+
+    roster = {
+      profileId: coordProfile.id,
+      coordinatorName,
+      coordinatorEmail,
+      capacity: { booked: Math.round(booked), total: coordProfile.capacityTotal },
+      shifts,
+    };
+  }
+
+  return c.json({
+    workerId: user.id,
+    name: user.fullName || 'Worker',
+    role: coordProfile?.skills?.[0] ? `Support Worker · ${coordProfile.skills[0]}` : 'Support Worker',
+    contexts,
+    marketplace,
+    roster,
+  });
+});
+
+// --- Check-ins (DB-backed, worker only) ---
+app.get('/api/checkins', async (c) => {
+  const userId = c.req.header('x-user-id');
+  if (!userId) return c.json({ error: 'Unauthenticated' }, 401);
+
+  const db = await getDb();
+  const rows = await db
+    .select()
+    .from(schema.wellnessLogs)
+    .where(and(eq(schema.wellnessLogs.userId, userId), eq(schema.wellnessLogs.audience, 'worker')))
+    .orderBy(desc(schema.wellnessLogs.createdAt))
+    .limit(4);
+
+  const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  const today = new Date();
+  const entries = rows
+    .map((r) => {
+      const d = new Date(r.createdAt);
+      const isToday =
+        d.getFullYear() === today.getFullYear() &&
+        d.getMonth() === today.getMonth() &&
+        d.getDate() === today.getDate();
+      return { day: isToday ? 'Today' : dayNames[d.getDay()], score: r.score ?? 0 };
+    })
+    .reverse();
+
+  return c.json(entries);
+});
 
 app.post('/api/checkins', async (c) => {
+  const userId = c.req.header('x-user-id');
+  if (!userId) return c.json({ error: 'Unauthenticated' }, 401);
+
+  const db = await getDb();
   const body = await c.req.json();
-  const entry = { day: 'Today', score: Number(body.score) };
-  const last = checkinHistory[checkinHistory.length - 1];
-  if (last && last.day === 'Today') checkinHistory[checkinHistory.length - 1] = entry;
-  else {
-    checkinHistory.push(entry);
-    if (checkinHistory.length > 4) checkinHistory.shift();
-  }
-  return c.json({ ok: true, entry }, 201);
+
+  // Resolve tenantId from the user's coordinator profile (null for pure independents)
+  const profiles = await db.select().from(schema.workerProfiles).where(eq(schema.workerProfiles.userId, userId));
+  const coordProfile = profiles.find((p) => p.workerType === 'coordinator');
+  const tenantId = coordProfile?.tenantId ?? null;
+
+  await db.insert(schema.wellnessLogs).values({
+    tenantId,
+    userId,
+    audience: 'worker',
+    logType: String(body.type || 'load'),
+    score: Number(body.score) || 0,
+    notes: body.notes || null,
+  });
+
+  return c.json({ ok: true, entry: { day: 'Today', score: Number(body.score) || 0 } }, 201);
 });
 
 app.post('/api/worker-hub/decision', async (c) => {
+  const userId = c.req.header('x-user-id');
+  if (!userId) return c.json({ error: 'Unauthenticated' }, 401);
+
+  const db = await getDb();
   const body = await c.req.json();
-  workerHub.request.status = body.decision === 'accept' ? 'accepted' : 'declined';
-  return c.json({ ok: true });
+  const requestId = String(body.requestId || '');
+  if (!requestId) return c.json({ error: 'Missing requestId' }, 400);
+
+  const [user] = await db.select().from(schema.users).where(eq(schema.users.id, userId)).limit(1);
+  if (!user) return c.json({ error: 'User not found' }, 404);
+
+  const profiles = await db.select().from(schema.workerProfiles).where(eq(schema.workerProfiles.userId, user.id));
+  const indProfile = profiles.find((p) => p.workerType === 'independent');
+  if (!indProfile) return c.json({ error: 'No marketplace profile' }, 403);
+
+  const [shift] = await db.select().from(schema.shifts).where(eq(schema.shifts.id, requestId)).limit(1);
+  if (!shift) return c.json({ error: 'Shift not found' }, 404);
+  if (shift.workerId !== indProfile.id) return c.json({ error: 'Not your shift' }, 403);
+  if (shift.status !== 'offered') return c.json({ error: 'Shift not open' }, 409);
+
+  const newStatus = body.decision === 'accept' ? 'accepted' : 'declined';
+  const declinedReason = body.decision === 'decline' ? (body.reason || 'Declined by worker') : null;
+
+  await db.update(schema.shifts)
+    .set({ status: newStatus, declinedReason })
+    .where(eq(schema.shifts.id, requestId));
+
+  return c.json({ ok: true, status: newStatus });
 });
 
-// --- Manager Hub Roster (Derived from unified workers) ---
-app.get('/api/roster', (c) => c.json(workers.map((w) => ({
-  id: String(w.id), name: w.name, role: `Support Worker · ${w.role}`, capacity: w.capacity,
-  availability: w.availability, checkins: [...w.checkins], lastCheckin: w.lastCheckin,
-}))));
+// --- Worker Roster (HelpHome-assigned shifts; hidden from independent-only workers) ---
+app.get('/api/worker-roster', (c) => c.json({
+  coordinatorName: 'HelpHome',
+  coordinatorEmail: 'tonia@helphome.au',
+  shifts: [
+    { id: 'h1', client: 'Mark T.', service: 'Personal Care', when: 'Fri 10:00–14:00', status: 'confirmed', location: 'Bondi' },
+    { id: 'h2', client: 'Priya K.', service: 'Community Access', when: 'Sat 9:00–13:00', status: 'confirmed', location: 'Parramatta' },
+    { id: 'h3', client: 'Dana W.', service: 'Transport', when: 'Mon 8:00–12:00', status: 'pending', location: 'Chatswood' },
+  ],
+}));
+
+// --- Coordinator Hub Roster (DB-backed, tenant-scoped) ---
+app.get('/api/roster', async (c) => {
+  const userId = c.req.header('x-user-id');
+  if (!userId) return c.json({ error: 'Unauthenticated' }, 401);
+
+  const db = await getDb();
+  const [user] = await db.select().from(schema.users).where(eq(schema.users.id, userId)).limit(1);
+  if (!user) return c.json({ error: 'User not found' }, 404);
+  if (user.role !== 'coordinator' && user.role !== 'admin') return c.json({ error: 'Forbidden' }, 403);
+  if (!user.tenantId) return c.json({ error: 'No tenant' }, 403);
+
+  const rows = await db
+    .select({ profile: schema.workerProfiles, fullName: schema.users.fullName })
+    .from(schema.workerProfiles)
+    .leftJoin(schema.users, eq(schema.workerProfiles.userId, schema.users.id))
+    .where(and(
+      eq(schema.workerProfiles.tenantId, user.tenantId),
+      eq(schema.workerProfiles.workerType, 'coordinator')
+    ));
+
+  const now = Date.now();
+  const hour = 3_600_000;
+
+  const roster = await Promise.all(rows.map(async (r) => {
+    const wl = await db
+      .select()
+      .from(schema.wellnessLogs)
+      .where(and(
+        eq(schema.wellnessLogs.userId, r.profile.userId),
+        eq(schema.wellnessLogs.audience, 'worker')
+      ))
+      .orderBy(desc(schema.wellnessLogs.createdAt))
+      .limit(4);
+
+    const checkins = wl.map((w) => w.score ?? 0).reverse();
+    const lastCheckin = wl.length > 0 ? timeAgo(wl[0].createdAt, now) : 'No check-ins';
+
+    const shifts = await db
+      .select()
+      .from(schema.shifts)
+      .where(and(
+        eq(schema.shifts.workerId, r.profile.id),
+        inArray(schema.shifts.status, ['accepted', 'in_progress', 'completed'])
+      ));
+    const booked = shifts.reduce(
+      (sum, sh) => sum + (new Date(sh.endTime).getTime() - new Date(sh.startTime).getTime()) / hour,
+      0
+    );
+
+    const skills = r.profile.skills || [];
+    const role = skills.length > 0 ? `Support Worker · ${skills[0]}` : 'Support Worker';
+
+    return {
+      id: r.profile.id,
+      name: r.fullName || 'Worker',
+      role,
+      capacity: { booked: Math.round(booked), total: r.profile.capacityTotal },
+      availability: '—',
+      checkins,
+      lastCheckin,
+    };
+  }));
+
+  return c.json(roster);
+});
 
 app.post('/api/roster/:id/welfare-chat', (c) => {
   welfareChats[c.req.param('id')] = true;
@@ -290,11 +550,21 @@ app.get('/api/verification/stats', (c) => c.json([
 ]));
 
 // --- Auth (DB-backed) ---
+const demoLogins = [
+  { email: 'jane.doe@client.com', label: 'CareWork Client' },
+  { email: 'mia.chen@worker.com', label: 'Independent Worker' },
+  { email: 'sarah.johnson@helphome-worker.com', label: 'Coordinator Worker' },
+  { email: 'tonia@helphome.au', label: 'Coordinator Admin' },
+  { email: 'admin@carework.au', label: 'CareWork Admin' },
+];
+
 app.get('/api/demo-accounts', async (c) => {
   const db = await getDb();
-  const rows = await db.select({ email: schema.users.email, role: schema.users.role }).from(schema.users);
-  const labels: Record<string, string> = { client: 'Client', worker: 'Worker', coordinator: 'Coordinator', admin: 'Admin' };
-  return c.json(rows.map((r) => ({ label: labels[r.role], email: r.email })));
+  const rows = await db.select({ email: schema.users.email })
+    .from(schema.users)
+    .where(inArray(schema.users.email, demoLogins.map((d) => d.email)));
+  const found = new Set(rows.map((r) => r.email));
+  return c.json(demoLogins.filter((d) => found.has(d.email)));
 });
 
 app.post('/api/login', async (c) => {
@@ -303,7 +573,16 @@ app.post('/api/login', async (c) => {
   const [user] = await db.select().from(schema.users).where(eq(schema.users.email, body.email)).limit(1);
   if (!user || user.passwordHash !== body.password) return c.json({ ok: false }, 401);
   await db.update(schema.users).set({ lastLogin: new Date() }).where(eq(schema.users.id, user.id));
-  return c.json({ ok: true, role: user.role });
+
+  let workerContexts: string[] = [];
+  if (user.role === 'worker') {
+    const profiles = await db.select({ workerType: schema.workerProfiles.workerType })
+      .from(schema.workerProfiles)
+      .where(eq(schema.workerProfiles.userId, user.id));
+    workerContexts = [...new Set(profiles.map((p) => p.workerType))];
+  }
+
+  return c.json({ ok: true, userId: user.id, role: user.role, workerContexts });
 });
 
 // --- Stubs ---

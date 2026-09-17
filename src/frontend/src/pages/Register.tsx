@@ -91,7 +91,7 @@ export default function Register() {
 
     return (
       <div className="register-page">
-        <h1>Welcome to HelpHome, {name || 'there'}!</h1>
+        <h1>Welcome to CareWork, {name || 'there'}!</h1>
         <p className="lead">We matched you before you finished your coffee. Based on your interests, here are your first support workers:</p>
         <section className="worker-grid">
           {ranked.map((w) => (
@@ -219,7 +219,7 @@ export default function Register() {
 
   return (
     <div className="register-page">
-      <h1>Join HelpHome</h1>
+      <h1>Join CareWork</h1>
       <p className="lead">Better care, perfect matches, zero agency delays. Choose your door:</p>
       <section className="door-grid">
         <button className="door-card" onClick={() => { setDoor('client'); resetForm(); }}>

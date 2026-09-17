@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 
 type Door = 'client' | 'worker' | 'coordinator' | null;
+type MatchFilter = 'all' | '50' | '75';
 
 interface RegWorker {
   id: string;
@@ -34,6 +35,10 @@ export default function Register() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
+  const [matchFilter, setMatchFilter] = useState<MatchFilter>('all');
+  const [interestFilter, setInterestFilter] = useState<string>('all');
+  const [selectedWorker, setSelectedWorker] = useState<string>('');
+
   useEffect(() => {
     Promise.all([
       fetch('/api/workers').then((r) => r.json()),
@@ -52,6 +57,9 @@ export default function Register() {
 
   const resetForm = () => {
     setName(''); setEmail(''); setPassword(''); setConfirm(''); setOrg(''); setPicked([]); setError('');
+    setSelectedWorker('');
+    setMatchFilter('all');
+    setInterestFilter('all');
   };
 
   const backToDoors = () => { setDoor(null); resetForm(); };
@@ -77,8 +85,11 @@ export default function Register() {
     }
   };
 
-  const ranked = [...workers].map((w) => ({ ...w, pct: matchPct(picked, w) })).sort((a, b) => b.pct - a.pct);
+  const ranked = [...workers]
+    .map((w) => ({ ...w, pct: matchPct(picked, w) }))
+    .sort((a, b) => b.pct - a.pct);
 
+  // ---- Client success screen ----
   if (done && door === 'client') {
     if (loading) {
       return (
@@ -89,6 +100,18 @@ export default function Register() {
       );
     }
 
+    // Only workers who share at least one picked interest are eligible.
+    const eligible = ranked.filter((w) => w.pct > 0);
+
+    const filtered = eligible.filter((w) => {
+      if (matchFilter === '50' && w.pct < 50) return false;
+      if (matchFilter === '75' && w.pct < 75) return false;
+      if (interestFilter !== 'all' && !w.interests.includes(interestFilter.toLowerCase())) return false;
+      return true;
+    });
+
+    const matchCount = (min: number) => eligible.filter((w) => w.pct >= min).length;
+
     return (
       <div className="register-page">
         <h1>Thanks, {name || 'there'}!</h1>
@@ -96,21 +119,95 @@ export default function Register() {
           Your application is in. We'll email <strong>{email || 'you'}</strong> once your account is verified — usually within 24 hours.
         </p>
         <p className="hub-note" style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
-          In the meantime, here's a preview of the kind of workers you'll be matched with:
+          In the meantime, pick the workers you'd like to be matched with:
         </p>
-        <section className="worker-grid">
-          {ranked.map((w) => (
-            <article className="card worker-card" key={w.id}>
-              <div className="worker-head">
-                <h3>{w.name}</h3>
-                <span className={`match-badge ${w.pct >= 60 ? 'high' : 'low'}`}>{w.pct}% Match</span>
-              </div>
-              <p className="worker-role">{w.role}</p>
-              <p className="worker-bio">{w.bio}</p>
-            </article>
+
+        <div className="hub-switcher">
+          {([
+            { key: 'all', label: `All (${eligible.length})` },
+            { key: '50', label: `50%+ (${matchCount(50)})` },
+            { key: '75', label: `75%+ (${matchCount(75)})` },
+          ] as const).map((f) => (
+            <button
+              key={f.key}
+              className={`hub-tab ${matchFilter === f.key ? 'active' : ''}`}
+              onClick={() => setMatchFilter(f.key as MatchFilter)}
+            >
+              {f.label}
+            </button>
           ))}
+        </div>
+
+        {picked.length > 0 && (
+          <div className="hub-switcher">
+            <button
+              className={`hub-tab ${interestFilter === 'all' ? 'active' : ''}`}
+              onClick={() => setInterestFilter('all')}
+            >
+              All
+            </button>
+            {picked.map((i) => (
+              <button
+                key={i}
+                className={`hub-tab ${interestFilter === i ? 'active' : ''}`}
+                onClick={() => setInterestFilter(i)}
+              >
+                {i}
+              </button>
+            ))}
+          </div>
+        )}
+
+        <section className="worker-grid">
+          {filtered.length === 0 && (
+            <p className="hub-explain" style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '2rem 0' }}>
+              No workers match these filters.
+            </p>
+          )}
+          {filtered.map((w) => {
+            const selected = selectedWorker === w.id;
+            return (
+              <article
+                key={w.id}
+                className="card worker-card"
+                style={{ cursor: 'pointer', outline: selected ? '2px solid var(--hh-blue)' : 'none' }}
+                onClick={() => setSelectedWorker(selected ? '' : w.id)}
+              >
+                <div>
+                  <div className="worker-head">
+                    <h3>{w.name}</h3>
+                    <span className={`match-badge ${w.pct >= 60 ? 'high' : 'low'}`}>{w.pct}% Match</span>
+                  </div>
+                  <p className="worker-role">{w.role}</p>
+                  <p className="worker-bio">{w.bio}</p>
+                  <p className="worker-skills">
+                    <strong>Interests:</strong>{' '}
+                    {w.interests.length > 0 ? w.interests.join(', ') : '—'}
+                  </p>
+                </div>
+                <button
+                  className={`btn btn-block ${selected ? 'btn-success' : ''}`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSelectedWorker(selected ? '' : w.id);
+                  }}
+                >
+                  {selected ? '✓ Selected' : 'Select this worker'}
+                </button>
+              </article>
+            );
+          })}
         </section>
-        <button className="btn btn-block" onClick={() => navigate('/')}>Back to home</button>
+
+        {selectedWorker && (
+          <div className="flash success" style={{ marginTop: '1.5rem', textAlign: 'center' }}>
+            Noted — we'll match you with {ranked.find((w) => w.id === selectedWorker)?.name} once your account is verified.
+          </div>
+        )}
+
+        <button className="btn btn-block" style={{ marginTop: '1rem' }} onClick={() => navigate('/')}>
+          Back to home
+        </button>
         <p className="hub-explain" style={{ textAlign: 'center', marginTop: '1rem' }}>
           Preview uses representative worker data. Real matches are shown once your account is created during pilot onboarding.
         </p>
@@ -118,6 +215,7 @@ export default function Register() {
     );
   }
 
+  // ---- Worker / Coordinator success ----
   if (done && door === 'worker') {
     return (
       <div className="register-page">
@@ -153,6 +251,7 @@ export default function Register() {
     );
   }
 
+  // ---- Forms (unchanged from your last version) ----
   if (door === 'client') {
     return (
       <div className="register-page">
@@ -232,6 +331,7 @@ export default function Register() {
     );
   }
 
+  // ---- Door selection ----
   return (
     <div className="register-page">
       <h1>Join CareWork</h1>

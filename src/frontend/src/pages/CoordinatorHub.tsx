@@ -38,7 +38,7 @@ export default function CoordinatorHub() {
     const userId = localStorage.getItem('helphome_user_id');
     Promise.all([
       fetch('/api/roster', { headers: { 'x-user-id': userId || '' } }).then((r) => r.json()),
-      fetch('/api/requests').then((r) => r.json()),
+      fetch('/api/requests', { headers: { 'x-user-id': userId || '' } }).then((r) => r.json()),
     ])
       .then(([rosterData, requestsData]) => {
         if (Array.isArray(rosterData)) setRoster(rosterData);

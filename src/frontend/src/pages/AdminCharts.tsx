@@ -13,9 +13,11 @@ export default function AdminCharts() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    const userId = localStorage.getItem('helphome_user_id');
+    const h = { 'x-user-id': userId || '' };
     Promise.all([
-      fetch('/api/charts/trend').then((r) => r.json()),
-      fetch('/api/charts/status').then((r) => r.json()),
+      fetch('/api/charts/trend', { headers: h }).then((r) => r.json()),
+      fetch('/api/charts/status', { headers: h }).then((r) => r.json()),
       fetch('/api/charts/revenue').then((r) => r.json()),
     ])
       .then(([t, s, rv]) => {
@@ -57,7 +59,10 @@ export default function AdminCharts() {
   const acceptancePct = totalBookings ? Math.round((accepted / totalBookings) * 100) : 0;
 
   const maxRev = Math.max(...revenue.map((r) => r.amount), 1);
-  const trendDelta = trend.length ? (trend[trend.length - 1].score - trend[0].score).toFixed(1) : '0.0';
+  const nonZero = trend.filter((t) => t.score > 0);
+  const trendDelta = nonZero.length >= 2
+    ? (nonZero[nonZero.length - 1].score - nonZero[0].score).toFixed(1)
+    : '0.0';
 
   return (
     <section className="charts-grid">
@@ -82,7 +87,7 @@ export default function AdminCharts() {
             <text key={`${d.day}-l`} x={px(i)} y={H - 4} textAnchor="middle" className="chart-axis">{d.day}</text>
           ))}
         </svg>
-        <p className="chart-foot">↑ +{trendDelta} pts this week — welfare chat with John Smith scheduled</p>
+        <p className="chart-foot">{Number(trendDelta) >= 0 ? '↑ +' : '↓ '}{trendDelta} pts this week (working days only)</p>
       </article>
 
       <article className="chart-card">

@@ -17,12 +17,14 @@ export default function AdminHome() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    const userId = localStorage.getItem('helphome_user_id');
+    const h = { 'x-user-id': userId || '' };
     Promise.all([
-      fetch('/api/admin/kpis').then((r) => r.json()),
-      fetch('/api/admin/alerts').then((r) => r.json()),
-      fetch('/api/admin/activity').then((r) => r.json()),
-      fetch('/api/admin/people').then((r) => r.json()),
-      fetch('/api/admin/health').then((r) => r.json()),
+      fetch('/api/admin/kpis', { headers: h }).then((r) => r.json()),
+      fetch('/api/admin/alerts', { headers: h }).then((r) => r.json()),
+      fetch('/api/admin/activity', { headers: h }).then((r) => r.json()),
+      fetch('/api/admin/people', { headers: h }).then((r) => r.json()),
+      fetch('/api/admin/health', { headers: h }).then((r) => r.json()),
     ])
       .then(([k, a, act, p, h]) => {
         setKpis(k);
@@ -36,7 +38,8 @@ export default function AdminHome() {
   }, []);
 
   const dismiss = (id: number) => {
-    fetch(`/api/admin/alerts/${id}/dismiss`, { method: 'POST' }).catch(() => {});
+    const userId = localStorage.getItem('helphome_user_id');
+    fetch(`/api/admin/alerts/${id}/dismiss`, { method: 'POST', headers: { 'x-user-id': userId || '' } }).catch(() => {});
     setAlerts((prev) => prev.map((a) => (a.id === id ? { ...a, dismissed: true } : a)));
   };
 

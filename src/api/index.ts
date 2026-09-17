@@ -459,10 +459,13 @@ app.post('/api/worker-hub/decision', async (c) => {
   return c.json({ ok: true, status: newStatus });
 });
 
-// --- Coordinator Hub Roster (DB-backed, tenant-scoped) ---
+// --- Coordinator Hub Roster (DB-backed, tenant-scoped, batched) ---
 app.get('/api/roster', async (c) => {
   const userId = c.req.header('x-user-id');
   if (!userId) return c.json({ error: 'Unauthenticated' }, 401);
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(userId)) {
+    return c.json({ error: 'User not found' }, 404);
+  }
 
   const db = await getDb();
   const [user] = await db.select().from(schema.users).where(eq(schema.users.id, userId)).limit(1);
@@ -471,6 +474,7 @@ app.get('/api/roster', async (c) => {
 
   const tenantFilter = user.role === 'coordinator' && user.tenantId ? user.tenantId : null;
 
+  // 3 batched queries instead of N+1
   const baseQuery = db
     .select({ profile: schema.workerProfiles, fullName: schema.users.fullName })
     .from(schema.workerProfiles)
@@ -483,30 +487,48 @@ app.get('/api/roster', async (c) => {
       ))
     : await baseQuery.where(eq(schema.workerProfiles.workerType, 'coordinator'));
 
+  const userIds = rows.map((r) => r.profile.userId);
+  const profileIds = rows.map((r) => r.profile.id);
+
+  // Batch 2: all worker wellness logs for these users
+  const allLogs = userIds.length
+    ? await db.select().from(schema.wellnessLogs).where(and(
+        inArray(schema.wellnessLogs.userId, userIds),
+        eq(schema.wellnessLogs.audience, 'worker')
+      )).orderBy(desc(schema.wellnessLogs.createdAt))
+    : [];
+
+  // Batch 3: all shifts for these worker profiles
+  const allShifts = profileIds.length
+    ? await db.select().from(schema.shifts).where(and(
+        inArray(schema.shifts.workerId, profileIds),
+        inArray(schema.shifts.status, ['accepted', 'in_progress', 'completed'])
+      ))
+    : [];
+
+  // Group in memory
+  const logsByUser = new Map<string, typeof allLogs>();
+  for (const l of allLogs) {
+    if (!logsByUser.has(l.userId)) logsByUser.set(l.userId, []);
+    logsByUser.get(l.userId)!.push(l);
+  }
+
+  const shiftsByWorker = new Map<string, typeof allShifts>();
+  for (const s of allShifts) {
+    if (!s.workerId) continue;
+    if (!shiftsByWorker.has(s.workerId)) shiftsByWorker.set(s.workerId, []);
+    shiftsByWorker.get(s.workerId)!.push(s);
+  }
+
   const now = Date.now();
   const hour = 3_600_000;
 
-  const roster = await Promise.all(rows.map(async (r) => {
-    const wl = await db
-      .select()
-      .from(schema.wellnessLogs)
-      .where(and(
-        eq(schema.wellnessLogs.userId, r.profile.userId),
-        eq(schema.wellnessLogs.audience, 'worker')
-      ))
-      .orderBy(desc(schema.wellnessLogs.createdAt))
-      .limit(4);
-
+  const roster = rows.map((r) => {
+    const wl = (logsByUser.get(r.profile.userId) || []).slice(0, 4);
     const checkins = wl.map((w) => w.score ?? 0).reverse();
     const lastCheckin = wl.length > 0 ? timeAgo(wl[0].createdAt, now) : 'No check-ins';
 
-    const shifts = await db
-      .select()
-      .from(schema.shifts)
-      .where(and(
-        eq(schema.shifts.workerId, r.profile.id),
-        inArray(schema.shifts.status, ['accepted', 'in_progress', 'completed'])
-      ));
+    const shifts = shiftsByWorker.get(r.profile.id) || [];
     const booked = shifts.reduce(
       (sum, sh) => sum + (new Date(sh.endTime).getTime() - new Date(sh.startTime).getTime()) / hour,
       0
@@ -524,7 +546,7 @@ app.get('/api/roster', async (c) => {
       checkins,
       lastCheckin,
     };
-  }));
+  });
 
   return c.json(roster);
 });

@@ -1,0 +1,739 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CareWork Platform — Complete Documentation</title>
+<style>
+  :root { --blue: #00A3E0; --blue-dark: #0087C2; --mint: #00D68F; --ink: #1F2933; --grey: #61707B; --border: #D9E4EA; }
+  * { box-sizing: border-box; }
+  body { font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; max-width: 900px; margin: 40px auto; padding: 0 24px; line-height: 1.65; color: var(--ink); background: #fff; }
+  h1 { font-family: "Playfair Display", Georgia, serif; font-size: 2em; border-bottom: 3px solid var(--blue); padding-bottom: 8px; color: #1a5276; margin-top: 0; }
+  h2 { font-family: "Playfair Display", Georgia, serif; font-size: 1.5em; margin-top: 42px; color: var(--blue-dark); border-bottom: 1px solid var(--border); padding-bottom: 4px; }
+  h3 { font-family: "Playfair Display", Georgia, serif; font-size: 1.15em; color: #2874a6; margin-top: 26px; }
+  h4 { font-size: 1em; color: var(--ink); margin-top: 20px; }
+  p { margin: 10px 0; }
+  a { color: var(--blue); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  table { border-collapse: collapse; width: 100%; margin: 16px 0; font-size: 0.93em; }
+  th, td { border: 1px solid var(--border); padding: 8px 10px; text-align: left; vertical-align: top; }
+  th { background: #E6F6FD; font-weight: 600; }
+  tr:nth-child(even) td { background: #fafcfd; }
+  code { background: #f4f6f7; padding: 2px 6px; border-radius: 4px; font-family: Consolas, Menlo, monospace; font-size: 0.88em; color: #c0392b; }
+  pre { background: #f8f9fa; border-left: 4px solid var(--blue); padding: 14px 18px; overflow-x: auto; border-radius: 4px; font-size: 0.86em; line-height: 1.5; }
+  pre code { background: none; color: #222; padding: 0; }
+  ul, ol { padding-left: 24px; margin: 10px 0; }
+  li { margin: 5px 0; }
+  blockquote { border-left: 4px solid var(--mint); background: #f0fbfb; padding: 10px 18px; margin: 16px 0; border-radius: 0 6px 6px 0; color: var(--grey); }
+  .meta { background: #f4f6f7; padding: 18px 22px; border-radius: 8px; margin: 20px 0; font-size: 0.94em; }
+  .meta strong { color: var(--blue-dark); }
+  .toc { background: #fafbfc; padding: 16px 28px; border-radius: 8px; border-left: 4px solid var(--mint); margin: 24px 0; }
+  .toc ol { margin: 8px 0; padding-left: 22px; }
+  .toc li { margin: 3px 0; }
+  .arch { background: #f8f9fa; padding: 20px; border-radius: 8px; font-family: Consolas, Menlo, monospace; font-size: 0.82em; line-height: 1.6; overflow-x: auto; white-space: pre; }
+  hr { border: none; border-top: 1px dashed var(--border); margin: 40px 0; }
+  .footer { color: var(--grey); font-size: 0.9em; text-align: center; margin: 60px 0 30px; padding-top: 20px; border-top: 1px solid var(--border); }
+  .warn { background: #FFF3CD; border-left: 4px solid #F39C12; padding: 10px 16px; border-radius: 0 6px 6px 0; margin: 14px 0; }
+  .ok { background: #D4EDDA; border-left: 4px solid var(--mint); padding: 10px 16px; border-radius: 0 6px 6px 0; margin: 14px 0; }
+  @media print {
+    body { max-width: 100%; margin: 0; font-size: 10.5pt; }
+    h2 { page-break-after: avoid; }
+    table, pre { page-break-inside: avoid; }
+    .no-print { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<h1>CareWork Platform — Complete Documentation</h1>
+
+<div class="meta">
+<strong>Version:</strong> 1.0 &nbsp;·&nbsp; <strong>Date:</strong> 18 September 2026<br>
+<strong>Author:</strong> Nikolai Tchitachvili (Technical Director)<br>
+<strong>Repository:</strong> github.com/ntchita/helphome &nbsp;·&nbsp; branch <code>feature/multitenant</code><br>
+<strong>Status:</strong> Production live · pilot phase
+</div>
+
+<div class="toc">
+<strong>Contents</strong>
+<ol>
+<li><a href="#s1">What CareWork Is (and why)</a></li>
+<li><a href="#s2">The Problem We're Solving</a></li>
+<li><a href="#s3">The Business Model</a></li>
+<li><a href="#s4">The Roles</a></li>
+<li><a href="#s5">The Stack (and why each choice)</a></li>
+<li><a href="#s6">The Architecture</a></li>
+<li><a href="#s7">The Database (14 tables)</a></li>
+<li><a href="#s8">The API (all endpoints)</a></li>
+<li><a href="#s9">The Frontend (all pages)</a></li>
+<li><a href="#s10">Demo Accounts &amp; Seed Data</a></li>
+<li><a href="#s11">Local Development</a></li>
+<li><a href="#s12">Deployment</a></li>
+<li><a href="#s13">Automated Tests</a></li>
+<li><a href="#s14">Known Limits &amp; Backlog</a></li>
+<li><a href="#s15">Emergency Recovery</a></li>
+<li><a href="#s16">Roadmap Beyond Pilot</a></li>
+<li><a href="#s17">Reference: URLs, Accounts, IDs</a></li>
+</ol>
+</div>
+
+<h2 id="s1">1. What CareWork Is (and why)</h2>
+<p>CareWork is a <strong>multi-tenant SaaS platform</strong> for the Australian disability and aged-care sector. It competes with Mable, HireUp, and LikeFamily — with two key differences:</p>
+<ol>
+<li><strong>Registered-provider-grade compliance</strong> — we keep full legal responsibility for compliance (unlike Mable, which shifts liability to contractors).</li>
+<li><strong>Wellness-integrated care</strong> — matching by shared interests and monitoring worker burnout, not just skills and availability.</li>
+</ol>
+<p><strong>Pilot phase:</strong> HelpHome (the existing NDIS provider) is <strong>tenant #1</strong> — the first coordinator organisation using the platform. Other coordinators can join as additional tenants.</p>
+<p><strong>Why build it (the story):</strong></p>
+<ul>
+<li>HelpHome uses VisualCare as its operational backbone (rostering, compliance, Xero). Client portal costs extra and wasn't licensed.</li>
+<li>Existing clients have no self-service way to book support — they call/email Tonia.</li>
+<li>Workers have no way to flag burnout before they quit.</li>
+<li>Competitors charge 17–33% platform fees. We charge 0% on the worker rate (subscription model).</li>
+</ul>
+
+<h2 id="s2">2. The Problem We're Solving</h2>
+<table>
+<tr><th>Problem</th><th>Who feels it</th><th>How CareWork helps</th></tr>
+<tr><td>Clients call/email to book shifts</td><td>Tonia + coordinators</td><td>24/7 self-service portal</td></tr>
+<tr><td>No interest-based matching</td><td>Clients</td><td>Workers matched on hobbies/goals</td></tr>
+<tr><td>Workers burn out and quit</td><td>Coordinators</td><td>Confidential wellbeing check-ins + alerts</td></tr>
+<tr><td>No visibility of worker load</td><td>Coordinators</td><td>Real-time capacity bars + derived status</td></tr>
+<tr><td>Expensive platform fees</td><td>Everyone</td><td>0% transaction fees; subscription model</td></tr>
+</table>
+
+<h2 id="s3">3. The Business Model</h2>
+<ul>
+<li><strong>New company</strong> owns the platform (CareWork) — same owners as HelpHome.</li>
+<li><strong>Multi-tenant</strong> — each coordinator organisation is a tenant. Data is siloed.</li>
+<li><strong>Revenue streams:</strong>
+  <ul>
+  <li>Subscription: clients pay premium tier (currently $19/mo, hidden during pilot)</li>
+  <li>Future: B2B placement fees from coordinators</li>
+  <li>Future: Stripe/Xero integration for real payments (post-pilot)</li>
+  </ul>
+</li>
+<li><strong>Workers keep 100%</strong> of their rate — no per-booking deduction.</li>
+<li><strong>Registered-provider path:</strong> HelpHome is unregistered today (claims via PlanCare). Registration expected next year enables direct NDIS/HCP claims.</li>
+</ul>
+
+<h2 id="s4">4. The Roles</h2>
+<p>Four roles. Each sees only their own world.</p>
+
+<h3>4.1 Client</h3>
+<ul>
+<li><strong>Sees:</strong> Dashboard (workers, filters, booking), Wellness check-in</li>
+<li><strong>Can:</strong> Browse independent workers, book shifts, log mood/goals/satisfaction</li>
+<li><strong>Cannot:</strong> See coordinator workers, see other clients' data, access admin pages</li>
+<li><strong>Demo login:</strong> <code>jane.doe@client.com</code> / <code>test</code></li>
+</ul>
+
+<h3>4.2 Worker</h3>
+<p>Two sub-types:</p>
+<p><strong>Independent</strong> (marketplace contractor):</p>
+<ul>
+<li><strong>Sees:</strong> My Hub with one tab: CareWork Marketplace</li>
+<li><strong>Can:</strong> Accept/decline marketplace requests, submit wellbeing check-ins</li>
+<li><strong>Cannot:</strong> See roster shifts (they have no coordinator), access coordinator/admin</li>
+</ul>
+<p><strong>Coordinator</strong> (belongs to a coordinator org, e.g. HelpHome):</p>
+<ul>
+<li><strong>Sees:</strong> My Hub with HelpHome Roster tab (plus Marketplace if dual)</li>
+<li><strong>Can:</strong> Same as independent + see assigned shifts from their coordinator</li>
+<li><strong>Cannot:</strong> See other workers' data, access admin pages</li>
+</ul>
+<p><strong>Dual worker</strong> (both types):</p>
+<ul>
+<li><strong>Sees:</strong> Both tabs — CareWork Marketplace + HelpHome Roster</li>
+<li><strong>Demo login:</strong> <code>sarah.johnson@helphome-worker.com</code> / <code>test</code></li>
+</ul>
+
+<h3>4.3 Coordinator</h3>
+<ul>
+<li><strong>Sees:</strong> Coordinator Hub (roster of assigned workers with wellbeing status), Verification Queue</li>
+<li><strong>Can:</strong> Filter by wellbeing status, schedule welfare chats, verify/revoke worker documents, see client requests for their workers</li>
+<li><strong>Cannot:</strong> See other tenants' workers, access admin-only pages</li>
+<li><strong>Demo login:</strong> <code>tonia@helphome.au</code> / <code>test</code></li>
+</ul>
+
+<h3>4.4 Admin (CareWork platform super-admin)</h3>
+<ul>
+<li><strong>Sees:</strong> Everything — all tenants, all workers, all clients</li>
+<li><strong>Can:</strong> All coordinator actions + see all client requests across the platform, view platform KPIs/charts/alerts/activity</li>
+<li><strong>Cannot:</strong> Nothing restricted (top-level role)</li>
+<li><strong>Demo login:</strong> <code>admin@carework.au</code> / <code>test</code></li>
+</ul>
+
+<h2 id="s5">5. The Stack (and why each choice)</h2>
+<table>
+<tr><th>Layer</th><th>Technology</th><th>Why</th></tr>
+<tr><td>Frontend</td><td>React 18 + Vite + TypeScript</td><td>Fast, standard, huge ecosystem</td></tr>
+<tr><td>Styling</td><td>Custom CSS</td><td>Full brand control, no framework overhead</td></tr>
+<tr><td>Routing</td><td>React Router 6</td><td>Standard SPA routing</td></tr>
+<tr><td>API</td><td>Hono (TypeScript)</td><td>Runtime-agnostic — Workers, Node, Bun, Deno, Azure</td></tr>
+<tr><td>Worker runtime</td><td>Cloudflare Workers</td><td>Free tier, global edge, integrated with Pages</td></tr>
+<tr><td>Database</td><td>Supabase Postgres (Sydney)</td><td>Real Postgres, AU residency, free tier</td></tr>
+<tr><td>ORM</td><td>Drizzle</td><td>Type-safe, portable to any Postgres</td></tr>
+<tr><td>Postgres driver</td><td><code>postgres</code> (porsager)</td><td>Works in both Node AND Workers (unlike <code>pg</code>)</td></tr>
+<tr><td>Connection pooling</td><td>Cloudflare Hyperdrive</td><td>Required for Workers → external Postgres</td></tr>
+<tr><td>Frontend hosting</td><td>Cloudflare Pages</td><td>Free static hosting</td></tr>
+<tr><td>Proxy layer</td><td>Pages Functions</td><td>Bridges browser ↔ Worker (no CORS drama)</td></tr>
+<tr><td>Testing</td><td>Playwright (UI) + Node fetch (API)</td><td>Headless Chrome for real interaction tests</td></tr>
+<tr><td>Source control</td><td>GitHub (<code>ntchita/helphome</code>)</td><td>Standard</td></tr>
+</table>
+<p><strong>Why this specific combination:</strong></p>
+<ul>
+<li><strong>Hono</strong> because the same code runs on Cloudflare Workers today and Azure tomorrow (only the adapter changes).</li>
+<li><strong><code>postgres</code> driver</strong> instead of <code>pg</code> because <code>pg</code> doesn't work in Workers (no TCP).</li>
+<li><strong>Hyperdrive</strong> because Workers can't hold raw Postgres connections — Hyperdrive pools them.</li>
+<li><strong>Supabase</strong> because it's the closest free-tier to Azure Postgres we'll eventually migrate to — no code changes needed, just a new connection string.</li>
+</ul>
+
+<h2 id="s6">6. The Architecture</h2>
+<div class="arch">┌─────────────────────────────────────────────────────────────┐
+│  BROWSER (desktop / mobile)                                 │
+└──────────────────────────┬──────────────────────────────────┘
+                           │ HTTPS
+                           ▼
+┌─────────────────────────────────────────────────────────────┐
+│  CLOUDFLARE PAGES  (helphome-app.pages.dev)                 │
+│  ├── React SPA (compiled from src/frontend/)                │
+│  └── Pages Function (functions/api/[[path]].ts)             │
+│      → forwards /api/* to the Worker                        │
+└──────────────────────────┬──────────────────────────────────┘
+                           │ HTTPS (server-to-server)
+                           ▼
+┌─────────────────────────────────────────────────────────────┐
+│  CLOUDFLARE WORKER  (helphome-api.lifewealth.workers.dev)   │
+│  Hono API — all business logic                              │
+│  ├── Auth middleware (x-user-id header)                     │
+│  ├── Role guards (client/worker/coordinator/admin)          │
+│  └── 30+ routes                                             │
+└──────────────────────────┬──────────────────────────────────┘
+                           │ Hyperdrive binding
+                           ▼
+┌─────────────────────────────────────────────────────────────┐
+│  SUPABASE POSTGRES  (Sydney, ap-southeast-2)                │
+│  14 tables, multi-tenant via tenant_id                      │
+└─────────────────────────────────────────────────────────────┘</div>
+<p><strong>Why the proxy layer exists:</strong></p>
+<ul>
+<li>Without it, the browser hits the Worker directly (cross-origin), requiring careful CORS on every request.</li>
+<li>With it: browser sees only <code>helphome-app.pages.dev</code>; proxy forwards to the Worker with clean headers; Worker sees a plain server-to-server call.</li>
+</ul>
+<p><strong>Security boundary:</strong></p>
+<ul>
+<li>Browser <strong>never</strong> talks to Supabase directly.</li>
+<li>Supabase password exists only in local <code>.dev.vars</code> and Cloudflare Worker secret.</li>
+<li>All data access goes through the Worker (which enforces role guards).</li>
+</ul>
+
+<h2 id="s7">7. The Database (14 tables)</h2>
+<p>Multi-tenant: every business table has a <code>tenant_id</code> column (nullable where cross-tenant entities exist).</p>
+
+<h3>7.1 tenants</h3>
+<p>Coordinator organisations. HelpHome is tenant #1.</p>
+<table>
+<tr><th>Column</th><th>Type</th><th>Notes</th></tr>
+<tr><td>id</td><td>uuid PK</td><td></td></tr>
+<tr><td>name</td><td>text</td><td>"HelpHome"</td></tr>
+<tr><td>slug</td><td>text unique</td><td>"helphome"</td></tr>
+<tr><td>registered_provider</td><td>boolean</td><td>false until NDIS registration</td></tr>
+<tr><td>created_at</td><td>timestamptz</td><td></td></tr>
+</table>
+
+<h3>7.2 users</h3>
+<p>Every login (client, worker, coordinator, admin).</p>
+<table>
+<tr><th>Column</th><th>Type</th><th>Notes</th></tr>
+<tr><td>id</td><td>uuid PK</td><td></td></tr>
+<tr><td>tenant_id</td><td>uuid FK</td><td>NULL for admin</td></tr>
+<tr><td>email</td><td>text unique</td><td></td></tr>
+<tr><td>password_hash</td><td>text</td><td>plaintext "test" during pilot (replace with bcrypt)</td></tr>
+<tr><td>entra_object_id</td><td>text</td><td>for MS365 SSO (future)</td></tr>
+<tr><td>role</td><td>enum</td><td>client/worker/coordinator/admin</td></tr>
+<tr><td>full_name</td><td>text</td><td></td></tr>
+<tr><td>mfa_enabled</td><td>boolean</td><td></td></tr>
+<tr><td>is_active</td><td>boolean</td><td></td></tr>
+<tr><td>created_at</td><td>timestamptz</td><td></td></tr>
+<tr><td>last_login</td><td>timestamptz</td><td></td></tr>
+</table>
+
+<h3>7.3 client_profiles</h3>
+<table>
+<tr><th>Column</th><th>Notes</th></tr>
+<tr><td>user_id, tenant_id</td><td>NULL tenant (clients belong to CareWork)</td></tr>
+<tr><td>full_name, dob, address, phone</td><td>PII for commission reporting</td></tr>
+<tr><td>ndis_number</td><td></td></tr>
+<tr><td>funding_stream</td><td>private / ndis / hcp</td></tr>
+<tr><td>plan_manager_type</td><td>self_managed / plan_managed / ndia_managed</td></tr>
+<tr><td>plan_manager_name</td><td>"PlanCare" etc</td></tr>
+<tr><td>interests</td><td>jsonb string[] — drives matching</td></tr>
+<tr><td>support_goals</td><td>jsonb string[]</td></tr>
+</table>
+
+<h3>7.4 worker_profiles</h3>
+<table>
+<tr><th>Column</th><th>Notes</th></tr>
+<tr><td>user_id</td><td>FK to users</td></tr>
+<tr><td>tenant_id</td><td>NULL = independent; set = coordinator roster</td></tr>
+<tr><td>worker_type</td><td>independent / coordinator</td></tr>
+<tr><td>abn</td><td>contractor tax number</td></tr>
+<tr><td>bio, skills, interests</td><td>jsonb where array</td></tr>
+<tr><td>hourly_rate</td><td>real</td></tr>
+<tr><td>capacity_booked, capacity_total</td><td>caps at 85%</td></tr>
+<tr><td>consent_to_display</td><td>boolean — privacy gate for marketplace</td></tr>
+<tr><td>verification_status</td><td>pending / verified / rejected</td></tr>
+<tr><td>rating_avg, total_bookings</td><td></td></tr>
+</table>
+
+<h3>7.5 worker_documents</h3>
+<p>Police checks, WWCC, qualifications, insurance with issue/expiry dates.</p>
+
+<h3>7.6 job_postings</h3>
+<p>Coordinator-advertised shifts workers can accept.</p>
+
+<h3>7.7 shifts</h3>
+<p>The core marketplace/roster entity.</p>
+<table>
+<tr><th>Column</th><th>Notes</th></tr>
+<tr><td>tenant_id</td><td>NULL for marketplace; set for roster</td></tr>
+<tr><td>client_id, worker_id</td><td></td></tr>
+<tr><td>start_time, end_time</td><td>timestamptz</td></tr>
+<tr><td>service_type</td><td></td></tr>
+<tr><td>status</td><td>requested / offered / accepted / in_progress / completed / declined / cancelled</td></tr>
+<tr><td>declined_reason</td><td>never penalises worker</td></tr>
+<tr><td>match_score</td><td>0–100</td></tr>
+<tr><td>matched_on</td><td>jsonb string[] (shared interests)</td></tr>
+</table>
+
+<h3>7.8 progress_notes</h3>
+<p>Legal evidence of service. Immutable once approved.</p>
+
+<h3>7.9 wellness_logs</h3>
+<p>Confidential check-ins. <code>audience</code> field: <code>worker</code> (load/supported/balance) or <code>client</code> (mood/goals/satisfaction).</p>
+
+<h3>7.10 welfare_chats</h3>
+<p>Coordinator follow-ups on flagged workers.</p>
+
+<h3>7.11 comms_events</h3>
+<p>Masked in-app calls/messages (schema only).</p>
+
+<h3>7.12 invoices</h3>
+<p>Contractor tax invoices + client invoices (schema only).</p>
+
+<h3>7.13 signup_leads</h3>
+<p>Register three-door intake. Dedup on (email, door).</p>
+<table>
+<tr><th>Column</th><th>Notes</th></tr>
+<tr><td>door</td><td>client / worker / coordinator</td></tr>
+<tr><td>name, email, org_name</td><td></td></tr>
+<tr><td>interests</td><td>jsonb</td></tr>
+<tr><td>funding_stream, plan_manager_name</td><td>from client door</td></tr>
+<tr><td>preferred_worker_id</td><td>FK to worker_profiles</td></tr>
+</table>
+
+<h3>7.14 visualcare_sync_log</h3>
+<p>Audit of exchanges with VisualCare (schema only).</p>
+
+<h2 id="s8">8. The API (all endpoints)</h2>
+<p>Base URL: <code>https://helphome-api.lifewealth.workers.dev</code> (prod) or <code>http://localhost:8787</code> (local).</p>
+<p><strong>Auth pattern:</strong> private endpoints read <code>x-user-id</code> header. Malformed UUID → 404 early (middleware). Missing header → 401. Wrong role → 403.</p>
+
+<h3>8.1 Public</h3>
+<table>
+<tr><th>Method</th><th>Path</th><th>Returns</th></tr>
+<tr><td>GET</td><td>/</td><td>{message, version}</td></tr>
+<tr><td>GET</td><td>/api/demo-accounts</td><td>5 demo accounts</td></tr>
+<tr><td>POST</td><td>/api/login</td><td>{ok, userId, role, workerContexts}</td></tr>
+<tr><td>POST</td><td>/api/auth/register</td><td>writes signup_leads (dedup)</td></tr>
+</table>
+
+<h3>8.2 Client</h3>
+<table>
+<tr><th>Method</th><th>Path</th><th>Notes</th></tr>
+<tr><td>GET</td><td>/api/workers</td><td>independent + consented + verified only</td></tr>
+<tr><td>GET</td><td>/api/interests</td><td>distinct interests across displayed workers</td></tr>
+<tr><td>GET</td><td>/api/client-profile</td><td>logged-in client</td></tr>
+<tr><td>GET</td><td>/api/bookings</td><td>own shifts</td></tr>
+<tr><td>POST</td><td>/api/bookings</td><td>creates offered shift</td></tr>
+<tr><td>POST</td><td>/api/wellness</td><td>client check-in</td></tr>
+</table>
+
+<h3>8.3 Worker</h3>
+<table>
+<tr><th>Method</th><th>Path</th><th>Notes</th></tr>
+<tr><td>GET</td><td>/api/worker-hub</td><td>returns contexts + marketplace + roster</td></tr>
+<tr><td>POST</td><td>/api/worker-hub/decision</td><td>accept/decline marketplace shift</td></tr>
+<tr><td>POST</td><td>/api/worker-hub/flag-support</td><td>creates welfare_chat</td></tr>
+<tr><td>GET</td><td>/api/checkins</td><td>last 4 worker check-ins</td></tr>
+<tr><td>POST</td><td>/api/checkins</td><td>submit check-in</td></tr>
+</table>
+
+<h3>8.4 Coordinator</h3>
+<table>
+<tr><th>Method</th><th>Path</th><th>Notes</th></tr>
+<tr><td>GET</td><td>/api/roster</td><td>20 workers, tenant-scoped, batched</td></tr>
+<tr><td>POST</td><td>/api/roster/:id/welfare-chat</td><td>schedule follow-up</td></tr>
+<tr><td>GET</td><td>/api/requests</td><td>shifts for tenant</td></tr>
+<tr><td>GET</td><td>/api/verification</td><td>worker verification queue</td></tr>
+<tr><td>POST</td><td>/api/verification/:id/toggle</td><td>verify/revoke</td></tr>
+</table>
+
+<h3>8.5 Admin</h3>
+<table>
+<tr><th>Method</th><th>Path</th><th>Notes</th></tr>
+<tr><td>GET</td><td>/api/admin/kpis</td><td>6 KPI cards</td></tr>
+<tr><td>GET</td><td>/api/admin/alerts</td><td>derived live from DB</td></tr>
+<tr><td>POST</td><td>/api/admin/alerts/:id/dismiss</td><td>no-op (client-side only)</td></tr>
+<tr><td>GET</td><td>/api/admin/activity</td><td>last 10 events</td></tr>
+<tr><td>GET</td><td>/api/admin/people</td><td>counts for 3 categories</td></tr>
+<tr><td>GET</td><td>/api/admin/health</td><td>4 health bars</td></tr>
+<tr><td>GET</td><td>/api/requests</td><td>all tenants</td></tr>
+<tr><td>GET</td><td>/api/roster</td><td>all coordinator workers</td></tr>
+<tr><td>GET</td><td>/api/verification</td><td>all 32 profiles</td></tr>
+<tr><td>GET</td><td>/api/verification/activity</td><td>recent verify events</td></tr>
+<tr><td>GET</td><td>/api/verification/stats</td><td>32 workers / N shifts / N logs</td></tr>
+</table>
+
+<h3>8.6 Charts</h3>
+<table>
+<tr><th>Method</th><th>Path</th><th>Notes</th></tr>
+<tr><td>GET</td><td>/api/charts/trend</td><td>7-day worker wellness average</td></tr>
+<tr><td>GET</td><td>/api/charts/status</td><td>accepted/pending/declined</td></tr>
+<tr><td>GET</td><td>/api/charts/revenue</td><td><strong>deliberate hardcoded</strong> (Xero owns money)</td></tr>
+</table>
+
+<h3>8.7 Dev-only</h3>
+<div class="warn"><strong>Remove before public launch:</strong> <code>GET /api/_test/db/counts</code> — row counts for smoke tests.</div>
+
+<h2 id="s9">9. The Frontend (all pages)</h2>
+<table>
+<tr><th>Route</th><th>Role</th><th>Purpose</th></tr>
+<tr><td>/</td><td>public</td><td>Home marketing</td></tr>
+<tr><td>/login</td><td>public</td><td>5 demo role buttons</td></tr>
+<tr><td>/register</td><td>public</td><td>3 doors + forms + success screens</td></tr>
+<tr><td>/dashboard</td><td>client</td><td>Workers, filters, booking, match %</td></tr>
+<tr><td>/wellness</td><td>client</td><td>Mood/goals/satisfaction check-in</td></tr>
+<tr><td>/my-hub</td><td>worker</td><td>Tabs: Marketplace / HelpHome Roster</td></tr>
+<tr><td>/coordinator</td><td>coordinator + admin</td><td>20-worker roster, filters, welfare chat, client requests</td></tr>
+<tr><td>/verification</td><td>coordinator + admin</td><td>Verify queue with status + context filters</td></tr>
+<tr><td>/admin</td><td>admin</td><td>KPI strip, 3 charts, alerts, people, activity</td></tr>
+<tr><td>/requests</td><td>admin</td><td>All client requests with filters</td></tr>
+</table>
+<p><strong>Session model:</strong></p>
+<ul>
+<li>Login stores <code>helphome_logged_in</code>, <code>helphome_role</code>, <code>helphome_user_id</code>, <code>helphome_worker_contexts</code> in localStorage</li>
+<li>Every page has session-expiry guard: fetch 401/404 → clears storage → navigates to <code>/login</code></li>
+<li>BUILD_ID check: on boot, if <code>helphome_build</code> doesn't match, session clears (forces re-login after deploy)</li>
+</ul>
+<p><strong>Mobile:</strong> hamburger menu at &lt;768px viewport. Content max-width 1180px.</p>
+
+<h2 id="s10">10. Demo Accounts &amp; Seed Data</h2>
+<p>All passwords = <code>test</code>.</p>
+<table>
+<tr><th>Email</th><th>Role</th><th>Notes</th></tr>
+<tr><td>jane.doe@client.com</td><td>Client</td><td>Interests: dogs, music, outdoors</td></tr>
+<tr><td>mia.chen@worker.com</td><td>Independent Worker</td><td>Interests: dogs, music, outdoors</td></tr>
+<tr><td>sarah.johnson@helphome-worker.com</td><td>Dual Worker</td><td>HelpHome contractor + independent</td></tr>
+<tr><td>tonia@helphome.au</td><td>Coordinator</td><td>HelpHome tenant admin</td></tr>
+<tr><td>admin@carework.au</td><td>CareWork Admin</td><td>Full platform access</td></tr>
+</table>
+<p><strong>Seed data (regenerated by <code>src/db/seed.ts</code>):</strong></p>
+<ul>
+<li>10 clients (<code>@client.com</code>) — some with funding=NDIS, plan manager=PlanCare</li>
+<li>10 independent workers (<code>@worker.com</code>) — varied interests</li>
+<li>14 HelpHome employees (<code>@helphome.au</code>) — coordinator workers</li>
+<li>6 HelpHome contractors — 2 dual (<code>@helphome-worker.com</code>)</li>
+<li>5 shifts: 1 offered to Sarah (marketplace), 3 roster shifts, 1 offered to Mia</li>
+<li>91 wellness logs</li>
+<li>1 coordinator, 1 admin</li>
+</ul>
+<p><strong>Important:</strong> seeding only runs when <code>tenants</code> table is empty.</p>
+
+<h2 id="s11">11. Local Development</h2>
+<h3>One-time setup</h3>
+<pre><code>cd ~/helphome-platform/helphome
+npm install</code></pre>
+<p>Create <code>.dev.vars</code> at repo root (gitignored):</p>
+<pre><code>DATABASE_URL=postgresql://postgres.abjdnryzywhvndldvwgh:&lt;PASSWORD&gt;@aws-0-ap-southeast-2.pooler.supabase.com:6543/postgres</code></pre>
+<p>Verify it's gitignored:</p>
+<pre><code>git check-ignore .dev.vars     # should print .dev.vars</code></pre>
+
+<h3>Run</h3>
+<p>Two Git Bash windows, both from repo root:</p>
+<p><strong>Window 1 — backend:</strong></p>
+<pre><code>node server.js</code></pre>
+<p>→ http://localhost:8787</p>
+<p><strong>Window 2 — frontend:</strong></p>
+<pre><code>npx vite</code></pre>
+<p>→ http://localhost:5173</p>
+<p>Open browser: <code>http://localhost:5173</code></p>
+
+<h3>DB mode</h3>
+<ul>
+<li><strong>With <code>DATABASE_URL</code> set</strong> → uses Supabase (production parity)</li>
+<li><strong>Without</strong> → falls back to PGlite <code>.data/pg</code> (offline, zero setup)</li>
+</ul>
+
+<h3>Common issues</h3>
+<table>
+<tr><th>Error</th><th>Cause</th><th>Fix</th></tr>
+<tr><td>EADDRINUSE :8787</td><td>Backend already running</td><td>Ctrl+C old window</td></tr>
+<tr><td>Cannot find module</td><td>node_modules missing</td><td>npm install</td></tr>
+<tr><td>ERR_MODULE_NOT_FOUND on .ts import</td><td>Missing .ts extension</td><td>Add .ts</td></tr>
+<tr><td>PGlite Aborted() error</td><td>Corrupted DB from force-kill</td><td>See §15</td></tr>
+<tr><td>500 on /api/login</td><td>Session cache in Worker</td><td>Redeploy Worker (§12)</td></tr>
+</table>
+
+<h2 id="s12">12. Deployment</h2>
+
+<h3>12.1 Deploy the API (Cloudflare Worker)</h3>
+<pre><code>npx wrangler deploy</code></pre>
+<p>→ updates <code>helphome-api.lifewealth.workers.dev</code></p>
+<p>Requires <code>wrangler.toml</code> with Hyperdrive binding:</p>
+<pre><code>name = "helphome-api"
+main = "src/api/index.ts"
+compatibility_date = "2025-09-01"
+compatibility_flags = ["nodejs_compat"]
+
+[vars]
+ENVIRONMENT = "production"
+
+[[hyperdrive]]
+binding = "HYPERDRIVE"
+id = "f9dfbabe72104e969a7caa16fdf75769"
+
+[dev]
+port = 8787</code></pre>
+<p>Requires the Worker secret <code>DATABASE_URL</code> (set once via <code>npx wrangler secret put DATABASE_URL</code>).</p>
+
+<h3>12.2 Deploy the Frontend (Cloudflare Pages)</h3>
+<pre><code>npm run build
+cp -r functions src/functions
+npx wrangler pages deploy src/dist --project-name helphome-app --branch main</code></pre>
+<p><strong>Why the <code>cp -r</code>:</strong> Pages looks for <code>functions/</code> next to the deploy directory. We deploy from <code>src/dist/</code> so functions must be at <code>src/functions/</code>. Permanent fix pending (change Vite outDir to root <code>dist/</code>).</p>
+
+<h3>12.3 Run migrations</h3>
+<pre><code>npx drizzle-kit generate    # create migration file
+npx drizzle-kit push        # apply to Supabase (dev only — always review before prod)</code></pre>
+
+<h3>12.4 Deploy secrets</h3>
+<pre><code>npx wrangler secret put DATABASE_URL    # paste Supabase connection string when prompted</code></pre>
+
+<h3>12.5 What to do BEFORE every deploy</h3>
+<ol>
+<li>Run both smoke suites locally (§13)</li>
+<li>Commit and push all changes</li>
+<li>Deploy API first, then Frontend</li>
+<li>Run both smoke suites against production</li>
+<li>If broken → rollback (§15)</li>
+</ol>
+
+<h2 id="s13">13. Automated Tests</h2>
+
+<h3>API smoke — 28 checks, ~2 seconds</h3>
+<pre><code># Local
+node scripts/smoke.mjs
+
+# Production
+SMOKE_API=https://helphome-api.lifewealth.workers.dev node scripts/smoke.mjs</code></pre>
+<p>Covers: login for all 4 roles, worker list, booking, wellness, worker hub, checkins, decisions, flag-support, roster, requests, verification, admin endpoints, charts, register dedup, auth guards.</p>
+
+<h3>UI smoke — 59 checks, ~2 minutes (Playwright headless Chrome)</h3>
+<pre><code># Local (both servers must be running)
+node scripts/ui-smoke.mjs
+
+# Production
+SMOKE_BASE=https://helphome-app.pages.dev \
+SMOKE_API=https://helphome-api.lifewealth.workers.dev \
+node scripts/ui-smoke.mjs</code></pre>
+<p>Covers: real browser interactions — login flows for all roles, filter chips that narrow grids, Book Now button state flip, tab switching, welfare chat, verification toggle, register all 3 doors, mobile hamburger, session expiry bounce, DB growth verification.</p>
+<div class="warn"><strong>Warning:</strong> UI smoke writes real data to Supabase (bookings, wellness logs, signup leads, welfare chats, verification toggles). For pilot phase OK. For public launch: run against a staging DB.</div>
+
+<h2 id="s14">14. Known Limits &amp; Backlog</h2>
+
+<h3>Working, deployed</h3>
+<ul>
+<li>Multi-tenant DB</li>
+<li>4 roles with correct guards</li>
+<li>Marketplace matching (interest-based)</li>
+<li>Wellness check-ins (worker + client)</li>
+<li>Coordinator roster with real-time status</li>
+<li>Verification queue with dual-worker context labels</li>
+<li>Admin control tower (KPIs, charts, alerts, activity)</li>
+<li>Register: 3 doors, funding fields, worker preselection</li>
+<li>Mobile responsive</li>
+<li>Session-expiry guards on every page</li>
+</ul>
+
+<h3>Missing / post-pilot</h3>
+<table>
+<tr><th>Feature</th><th>Notes</th></tr>
+<tr><td>Email verification</td><td>Need Resend/SendGrid, token table, verify page</td></tr>
+<tr><td>MFA</td><td>Evgeny's requirement for all logins</td></tr>
+<tr><td>MS365 SSO</td><td>Entra ID for staff</td></tr>
+<tr><td>Real password hashing</td><td>Currently plaintext "test"</td></tr>
+<tr><td>Real email sending</td><td>Register says "we'll email you", nothing sends</td></tr>
+<tr><td>Payment gateway</td><td>Stripe via VisualCare integration</td></tr>
+<tr><td>Progress notes</td><td>Legal evidence, mandatory per meetings</td></tr>
+<tr><td>Funding display in coordinator view</td><td>Schema has it, UI doesn't</td></tr>
+<tr><td>VisualCare API integration</td><td>Schema + sync log exist, no live calls</td></tr>
+<tr><td>Azure Postgres migration</td><td>Post-pilot target</td></tr>
+<tr><td>Roster caching layer</td><td>Currently 3 queries per page — could be 1</td></tr>
+</table>
+
+<h3>Cosmetic</h3>
+<ul>
+<li><code>src/dist/</code> and <code>src/functions/</code> tracked in git (should be gitignored)</li>
+<li>Old "helphome" casing in <code>&lt;title&gt;</code> of index.html</li>
+<li>Alert dismissal is client-side only (returns on refresh — by design)</li>
+</ul>
+
+<h2 id="s15">15. Emergency Recovery</h2>
+
+<h3>Worker broken → rollback</h3>
+<pre><code>Cloudflare dashboard
+→ Workers &amp; Pages → helphome-api → Deployments
+→ click previous working version → Rollback</code></pre>
+<p>Effective within 30 seconds.</p>
+
+<h3>Pages broken → rollback</h3>
+<pre><code>Cloudflare dashboard
+→ Workers &amp; Pages → helphome-app → Deployments
+→ click previous working version → Rollback</code></pre>
+
+<h3>Supabase connection issues</h3>
+<ul>
+<li>Supabase performs periodic backups on the free tier. Exact cadence and restore UI depend on plan.</li>
+<li>Check Supabase dashboard → Database → Backups.</li>
+<li>Restore via Supabase dashboard → Database → Backups</li>
+<li>If password leaked: rotate in Supabase → update <code>.dev.vars</code> and Worker secret</li>
+</ul>
+
+<h3>Local PGlite corrupted</h3>
+<div class="warn"><strong>NEVER</strong> use <code>taskkill /F /IM node.exe</code> — corrupts PGlite.</div>
+<p>If corrupted:</p>
+<pre><code># Stop backend with Ctrl+C
+mv .data/pg .data/pg.corrupted
+mkdir -p .data/pg
+# restart backend — seeds fresh</code></pre>
+
+<h3>Git rollback</h3>
+<pre><code>git log --oneline -20         # find good commit hash
+git revert &lt;hash&gt;             # safe undo (new commit)
+git push origin feature/multitenant</code></pre>
+
+<h3>Full local reset</h3>
+<pre><code># Stop both servers
+rm -rf .data/pg &amp;&amp; mkdir -p .data/pg
+npx tsx -e "import { getDb } from './src/db/connection.ts'; getDb().then(() =&gt; { console.log('DB OK'); process.exit(0); })"</code></pre>
+
+<h2 id="s16">16. Roadmap Beyond Pilot</h2>
+
+<h3>Phase 2 — Real auth &amp; compliance (next 4–8 weeks)</h3>
+<ul>
+<li>Replace plaintext passwords with bcrypt</li>
+<li>Email verification with Resend</li>
+<li>MFA (TOTP or SMS)</li>
+<li>Real registration → real user creation</li>
+<li>Legal review of privacy policy + T&amp;Cs</li>
+</ul>
+
+<h3>Phase 3 — VisualCare integration</h3>
+<ul>
+<li>Request API credentials from Evgeny</li>
+<li>Sync: clients, workers, rosters, compliance status</li>
+<li>Push: shift completions, progress notes</li>
+<li>Bi-directional audit via visualcare_sync_log</li>
+</ul>
+
+<h3>Phase 4 — Registered provider &amp; payments</h3>
+<ul>
+<li>NDIS registration granted</li>
+<li>Stripe/Xero billing pipeline</li>
+<li>Direct claiming</li>
+<li>Public launch</li>
+</ul>
+
+<h3>Phase 5 — Azure migration</h3>
+<ul>
+<li>Spin up Azure Database for PostgreSQL (Sydney)</li>
+<li>Change <code>DATABASE_URL</code> — one line</li>
+<li>Point Hyperdrive at Azure</li>
+<li>Zero application code changes</li>
+</ul>
+
+<h2 id="s17">17. Reference: URLs, Accounts, IDs</h2>
+
+<h3>Live URLs</h3>
+<table>
+<tr><th>Purpose</th><th>URL</th></tr>
+<tr><td>Frontend</td><td>https://helphome-app.pages.dev</td></tr>
+<tr><td>API</td><td>https://helphome-api.lifewealth.workers.dev</td></tr>
+<tr><td>Supabase dashboard</td><td>https://supabase.com/dashboard</td></tr>
+<tr><td>Cloudflare dashboard</td><td>https://dash.cloudflare.com</td></tr>
+<tr><td>GitHub repo</td><td>https://github.com/ntchita/helphome</td></tr>
+</table>
+
+<h3>Cloudflare</h3>
+<table>
+<tr><th>Item</th><th>Value</th></tr>
+<tr><td>Pages project</td><td>helphome-app</td></tr>
+<tr><td>Worker name</td><td>helphome-api</td></tr>
+<tr><td>Worker subdomain</td><td>lifewealth.workers.dev</td></tr>
+<tr><td>Hyperdrive config</td><td>carework-supabase</td></tr>
+<tr><td>Hyperdrive ID</td><td>f9dfbabe72104e969a7caa16fdf75769</td></tr>
+<tr><td>Worker secret</td><td>DATABASE_URL</td></tr>
+</table>
+
+<h3>Supabase</h3>
+<table>
+<tr><th>Item</th><th>Value</th></tr>
+<tr><td>Project</td><td>carework-pilot</td></tr>
+<tr><td>Region</td><td>Oceania (Sydney) ap-southeast-2</td></tr>
+<tr><td>Host</td><td>aws-0-ap-southeast-2.pooler.supabase.com</td></tr>
+<tr><td>Port</td><td>5432 (Session pooler, for Hyperdrive); 6543 (Transaction pooler, for local)</td></tr>
+<tr><td>Database</td><td>postgres</td></tr>
+<tr><td>User</td><td>postgres.abjdnryzywhvndldvwgh</td></tr>
+</table>
+
+<h3>Repo paths</h3>
+<table>
+<tr><th>Purpose</th><th>Path</th></tr>
+<tr><td>Backend API</td><td>src/api/index.ts</td></tr>
+<tr><td>DB schema</td><td>src/db/schema.ts</td></tr>
+<tr><td>DB connection</td><td>src/db/connection.ts</td></tr>
+<tr><td>Seed data</td><td>src/db/seed.ts</td></tr>
+<tr><td>Frontend pages</td><td>src/frontend/src/pages/</td></tr>
+<tr><td>Global styles</td><td>src/frontend/src/index.css</td></tr>
+<tr><td>Pages Function proxy</td><td>functions/api/[[path]].ts</td></tr>
+<tr><td>Migrations</td><td>drizzle/</td></tr>
+<tr><td>API smoke test</td><td>scripts/smoke.mjs</td></tr>
+<tr><td>UI smoke test</td><td>scripts/ui-smoke.mjs</td></tr>
+<tr><td>Built frontend</td><td>src/dist/</td></tr>
+</table>
+
+<h3>Environment variables</h3>
+<table>
+<tr><th>Where</th><th>Name</th><th>Value</th></tr>
+<tr><td>.dev.vars (local)</td><td>DATABASE_URL</td><td>Supabase connection string</td></tr>
+<tr><td>Cloudflare Worker secret</td><td>DATABASE_URL</td><td>Same string</td></tr>
+<tr><td>Cloudflare Worker var</td><td>ENVIRONMENT</td><td>"production"</td></tr>
+</table>
+
+<h3>Contacts</h3>
+<table>
+<tr><th>Role</th><th>Person</th><th>Responsibility</th></tr>
+<tr><td>Technical Director</td><td>Nikolai Tchitachvili</td><td>Platform architecture, Product delivery</td></tr>
+<tr><td>Operations/Owner</td><td>Tonia Fridlis</td><td>Business requirements, Workflow</td></tr>
+<tr><td>Technical/Owner</td><td>Evgeny Fridlis</td><td>VisualCare, MS365, XERO, Infrastructure, APIs</td></tr>
+</table>
+
+<div class="footer">
+<strong>End of document.</strong><br>
+Version 1.0 · 18 September 2026 · CareWork Platform
+</div>
+
+</body>
+</html>

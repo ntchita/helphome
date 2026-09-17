@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CareWork — Development Backlog</title>
+<style>
+  :root { --blue: #00A3E0; --blue-dark: #0087C2; --mint: #00D68F; --ink: #1F2933; --grey: #61707B; --border: #D9E4EA; --red: #DC3545; --orange: #F39C12; --yellow: #D4AC0D; --green: #27AE60; --sky: #3498DB; }
+  * { box-sizing: border-box; }
+  body { font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; max-width: 950px; margin: 40px auto; padding: 0 24px; line-height: 1.65; color: var(--ink); background: #fff; }
+  h1 { font-family: "Playfair Display", Georgia, serif; font-size: 2em; border-bottom: 3px solid var(--blue); padding-bottom: 8px; color: #1a5276; margin-top: 0; }
+  h2 { font-family: "Playfair Display", Georgia, serif; font-size: 1.45em; margin-top: 42px; color: var(--blue-dark); padding-bottom: 4px; }
+  h3 { font-family: "Playfair Display", Georgia, serif; font-size: 1.1em; color: #2874a6; margin-top: 24px; margin-bottom: 8px; }
+  p { margin: 10px 0; }
+  table { border-collapse: collapse; width: 100%; margin: 16px 0; font-size: 0.93em; }
+  th, td { border: 1px solid var(--border); padding: 8px 10px; text-align: left; vertical-align: top; }
+  th { background: #E6F6FD; font-weight: 600; }
+  tr:nth-child(even) td { background: #fafcfd; }
+  code { background: #f4f6f7; padding: 2px 6px; border-radius: 4px; font-family: Consolas, Menlo, monospace; font-size: 0.88em; color: #c0392b; }
+  ul, ol { padding-left: 24px; margin: 10px 0; }
+  li { margin: 5px 0; }
+  .meta { background: #f4f6f7; padding: 18px 22px; border-radius: 8px; margin: 20px 0; font-size: 0.94em; }
+  .meta strong { color: var(--blue-dark); }
+  .legend { display: flex; flex-wrap: wrap; gap: 0.6rem; margin: 20px 0; }
+  .badge { display: inline-block; padding: 0.25rem 0.85rem; border-radius: 999px; font-size: 0.8rem; font-weight: 700; letter-spacing: 0.03em; }
+  .b-critical { background: #F8D7DA; color: #721C24; }
+  .b-high     { background: #FDEBD0; color: #7E5109; }
+  .b-medium   { background: #FCF3CF; color: #7D6608; }
+  .b-low      { background: #D4EDDA; color: #155724; }
+  .b-future   { background: #D6EAF8; color: #1B4F72; }
+  .pill { display: inline-block; padding: 0.1rem 0.6rem; border-radius: 999px; font-size: 0.75rem; font-weight: 700; margin-right: 0.35rem; vertical-align: middle; }
+  .p-critical { background: #F8D7DA; color: #721C24; }
+  .p-high     { background: #FDEBD0; color: #7E5109; }
+  .p-medium   { background: #FCF3CF; color: #7D6608; }
+  .p-low      { background: #D4EDDA; color: #155724; }
+  .p-future   { background: #D6EAF8; color: #1B4F72; }
+  .task { border: 1px solid var(--border); border-radius: 10px; padding: 14px 20px; margin: 12px 0; background: #fff; }
+  .task h3 { margin-top: 0; }
+  .task ul { margin: 6px 0; }
+  .task-meta { font-size: 0.85rem; color: var(--grey); margin: 4px 0 10px 0; font-style: italic; }
+  .section-critical { border-top: 3px solid var(--red); padding-top: 4px; }
+  .section-high     { border-top: 3px solid var(--orange); padding-top: 4px; }
+  .section-medium   { border-top: 3px solid var(--yellow); padding-top: 4px; }
+  .section-low      { border-top: 3px solid var(--green); padding-top: 4px; }
+  .section-future   { border-top: 3px solid var(--sky); padding-top: 4px; }
+  .warn { background: #FFF3CD; border-left: 4px solid #F39C12; padding: 10px 16px; border-radius: 0 6px 6px 0; margin: 14px 0; }
+  .footer { color: var(--grey); font-size: 0.9em; text-align: center; margin: 60px 0 30px; padding-top: 20px; border-top: 1px solid var(--border); }
+  @media print {
+    body { max-width: 100%; margin: 0; font-size: 10.5pt; }
+    h2 { page-break-after: avoid; }
+    .task, table { page-break-inside: avoid; }
+    .legend { page-break-inside: avoid; }
+  }
+</style>
+</head>
+<body>
+
+<h1>CareWork — Development Backlog</h1>
+
+<div class="meta">
+<strong>Version:</strong> 1.0 &nbsp;·&nbsp; <strong>Date:</strong> 18 September 2026<br>
+<strong>Author:</strong> Nikolai Tchitachvili (Technical Director)<br>
+<strong>Status:</strong> Pilot live · backlog planning
+</div>
+
+<p>This backlog captures every pending item across all development sessions. It is ordered by priority and dependency — items lower in the list assume higher items are already done where they overlap.</p>
+
+<div class="legend">
+  <span class="badge b-critical">🔴 CRITICAL — Pre-public launch</span>
+  <span class="badge b-high">🟠 HIGH — Stakeholder required</span>
+  <span class="badge b-medium">🟡 MEDIUM — Pilot polish</span>
+  <span class="badge b-low">🟢 LOW — Cosmetic</span>
+  <span class="badge b-future">🔵 FUTURE — Post-pilot</span>
+</div>
+
+<!-- ============================================================ -->
+<h2 class="section-critical">🔴 CRITICAL — Pre-public launch (cannot ship without)</h2>
+
+<div class="task">
+<h3>1. Real authentication</h3>
+<p class="task-meta">Cannot launch without this. Currently <code>x-user-id</code> header is trivially spoofable; password hash is plaintext <code>"test"</code>.</p>
+<ul>
+  <li>Replace plaintext <code>password_hash</code> with bcrypt</li>
+  <li>Real registration creates <code>users</code> + <code>client_profiles</code>/<code>worker_profiles</code> (today: leads only, no login possible)</li>
+  <li>Session tokens (JWT or server-side sessions) — replacing the header-based pseudo-auth</li>
+  <li>Rate limiting on <code>/api/login</code></li>
+  <li>Password reset flow</li>
+</ul>
+</div>
+
+<div class="task">
+<h3>2. Email verification</h3>
+<p class="task-meta">Register success currently says "we'll email you" — nothing sends. Real email service needed.</p>
+<ul>
+  <li>Resend or SendGrid account</li>
+  <li><code>verification_tokens</code> table</li>
+  <li><code>POST /api/verify-email/:token</code> endpoint</li>
+  <li>Verify page in frontend</li>
+  <li>Gate login until email verified</li>
+</ul>
+</div>
+
+<div class="task">
+<h3>3. MFA (Multi-factor authentication)</h3>
+<p class="task-meta">Evgeny's non-negotiable requirement for all logins. <code>mfa_enabled</code> column already exists.</p>
+<ul>
+  <li>TOTP (Google Authenticator) or SMS-based</li>
+  <li>Enrolment flow + recovery codes</li>
+  <li>Enforce per-role (staff/admin mandatory; clients/workers optional at first)</li>
+</ul>
+</div>
+
+<div class="task">
+<h3>4. Microsoft 365 SSO (Entra ID)</h3>
+<p class="task-meta">Evgeny's requirement for staff logins. <code>entra_object_id</code> column already exists.</p>
+<ul>
+  <li>Azure App Registration in HelpHome tenant</li>
+  <li>Coordinator + admin roles login via SSO</li>
+  <li>Clients and workers stay standalone (email/password + MFA)</li>
+  <li>Group-based role assignment</li>
+</ul>
+</div>
+
+<div class="task">
+<h3>5. Privacy Act compliance</h3>
+<p class="task-meta">Legal foundation for handling health-adjacent personal data.</p>
+<ul>
+  <li>Legal review of Privacy Policy + T&amp;Cs</li>
+  <li>Data retention policy + destruction schedule</li>
+  <li>Consent capture at registration</li>
+  <li>Breach notification flow</li>
+  <li>AU data residency documented (already satisfied — Supabase Sydney)</li>
+</ul>
+</div>
+
+<!-- ============================================================ -->
+<h2 class="section-high">🟠 HIGH — Required by stakeholders / meetings</h2>
+
+<div class="task">
+<h3>6. Progress notes (legal evidence)</h3>
+<p class="task-meta">Mandatory per meeting. Without this, cannot legally invoice. Schema exists (<code>progress_notes</code> table); no UI or API yet.</p>
+<ul>
+  <li>Worker submits note after shift completion (text + photo attachments)</li>
+  <li>Coordinator approves / rejects</li>
+  <li>Immutable once approved</li>
+  <li>Attached to invoice as proof of service</li>
+  <li>Feeds Xero via VisualCare</li>
+</ul>
+</div>
+
+<div class="task">
+<h3>7. VisualCare integration</h3>
+<p class="task-meta">Evgeny to provide API credentials + docs. Audit table exists (<code>visualcare_sync_log</code>); no live calls.</p>
+<ul>
+  <li>Read: clients, workers, rosters, compliance status</li>
+  <li>Write: shift completions, progress notes</li>
+  <li>Scheduled sync (nightly) + webhooks if VC supports</li>
+  <li>Graceful failure handling (queue + retry)</li>
+</ul>
+</div>
+
+<div class="task">
+<h3>8. Payment gateway</h3>
+<p class="task-meta">Via VisualCare → Xero (no direct Xero calls from CareWork). Pricing model deliberately deferred to post-pilot board decision.</p>
+<ul>
+  <li>Client subscription billing</li>
+  <li>Contractor tax invoices</li>
+  <li>Integration with plan managers (PlanCare etc.)</li>
+</ul>
+</div>
+
+<div class="task">
+<h3>9. Funding display in coordinator view</h3>
+<p class="task-meta">Schema already has <code>funding_stream</code>, <code>plan_manager_name</code>, <code>ndis_number</code>. Not visible in Coordinator Hub card or Client Requests.</p>
+<ul>
+  <li>Add funding tag to Coordinator Hub worker cards</li>
+  <li>Add funding + plan manager to Client Requests rows</li>
+</ul>
+</div>
+
+<!-- ============================================================ -->
+<h2 class="section-medium">🟡 MEDIUM — Pilot quality / polish</h2>
+
+<div class="task">
+<h3>10. Registration on production creates no login</h3>
+<p class="task-meta">Today: register writes <code>signup_leads</code>, nothing else. Post-pilot: real account creation.</p>
+<ul>
+  <li>Pilot: success screen honestly says "we'll email you once verified" (already in place)</li>
+  <li>Post-pilot: registration creates user + profile + verification token</li>
+</ul>
+</div>
+
+<div class="task">
+<h3>11. Roster caching layer</h3>
+<p class="task-meta">Currently 3 queries per page load (batched from 40+). Page loads in ~200ms. Optimisation, not urgent.</p>
+<ul>
+  <li>Optional: materialized view or cached table</li>
+  <li>Re-evaluate after load testing</li>
+</ul>
+</div>
+
+<div class="task">
+<h3>12. Alert dismissal persistence</h3>
+<p class="task-meta">Currently client-side only — dismissed alerts return on refresh. Acceptable for pilot; fix post-pilot.</p>
+<ul>
+  <li><code>dismissed_alerts</code> table keyed by (user, alert_hash)</li>
+  <li>Backend filter on <code>/api/admin/alerts</code></li>
+</ul>
+</div>
+
+<div class="task">
+<h3>13. Session guard audit</h3>
+<p class="task-meta">WorkerHome, ClientRequests, Dashboard have guards. Confirm all pages covered.</p>
+<ul>
+  <li>CoordinatorHub — verify</li>
+  <li>AdminHome — verify</li>
+  <li>AdminDashboard (Verification) — verify</li>
+  <li>ClientRequests — verify</li>
+  <li>Register success — verify</li>
+</ul>
+</div>
+
+<div class="task">
+<h3>14. Register picker pre-select UI</h3>
+<p class="task-meta">Backend saves <code>preferred_worker_id</code>; frontend partially reflects it. Test on prod.</p>
+<ul>
+  <li>Returning with same email → picker should show "already saved" state</li>
+  <li>Disable re-selection when saved (currently working in dev; confirm on prod)</li>
+</ul>
+</div>
+
+<!-- ============================================================ -->
+<h2 class="section-low">🟢 LOW — Cosmetic / housekeeping</h2>
+
+<div class="task">
+<h3>15. Git hygiene</h3>
+<ul>
+  <li>Add <code>src/dist/</code> and <code>src/functions/</code> to <code>.gitignore</code></li>
+  <li>Change Vite <code>outDir</code> to root <code>dist/</code> — kills the <code>cp -r functions</code> hack on deploy</li>
+  <li>Remove <code>/api/_test/db/counts</code> endpoint before public launch</li>
+</ul>
+</div>
+
+<div class="task">
+<h3>16. Brand casing</h3>
+<ul>
+  <li><code>&lt;title&gt;</code> in <code>index.html</code> still says "helphome" — should be "CareWork"</li>
+</ul>
+</div>
+
+<div class="task">
+<h3>17. Unified typography</h3>
+<ul>
+  <li>Playfair Display headings + Mulish body confirmed as brand system</li>
+  <li>Spot-check remaining pages for drift</li>
+  <li>Register success screen currently uses different font sizing</li>
+</ul>
+</div>
+
+<div class="task">
+<h3>18. Mobile QA</h3>
+<ul>
+  <li>Verify all pages at 400px width (hamburger tested; deep pages need audit)</li>
+  <li>Test on real devices: iOS Safari, Android Chrome</li>
+</ul>
+</div>
+
+<!-- ============================================================ -->
+<h2 class="section-future">🔵 FUTURE — Post-pilot roadmap</h2>
+
+<div class="task">
+<h3>19. Azure migration</h3>
+<ul>
+  <li>Spin up Azure Database for PostgreSQL (Sydney)</li>
+  <li>Change <code>DATABASE_URL</code> — one line</li>
+  <li>Point Hyperdrive at Azure</li>
+  <li>Zero application code changes required</li>
+</ul>
+</div>
+
+<div class="task">
+<h3>20. Registered provider &amp; claims</h3>
+<ul>
+  <li>NDIS registration granted (HelpHome — expected next year)</li>
+  <li>Direct claiming engine</li>
+  <li>Xero → Services Australia pipeline</li>
+  <li>Enables bypassing plan managers</li>
+</ul>
+</div>
+
+<div class="task">
+<h3>21. Multi-coordinator onboarding</h3>
+<ul>
+  <li>Invite flow for new coordinator organisations</li>
+  <li>Per-tenant branding</li>
+  <li>Tenant isolation testing at scale</li>
+</ul>
+</div>
+
+<div class="task">
+<h3>22. Coordinator role distinction</h3>
+<ul>
+  <li>Internal Coordinator-of-Workers (HelpHome staff) vs external Coordinator (plan managers)</li>
+  <li>Different permission scopes</li>
+  <li>External coordinator door on Register already exists (waitlist)</li>
+</ul>
+</div>
+
+<div class="task">
+<h3>23. Real-time features</h3>
+<ul>
+  <li>Live shift notifications (websocket or push)</li>
+  <li>In-app messaging (comms_events schema exists)</li>
+  <li>Masked calling (Twilio AU vs native WebRTC)</li>
+</ul>
+</div>
+
+<div class="task">
+<h3>24. Analytics &amp; reporting</h3>
+<ul>
+  <li>Client outcomes reports (for plan reviews)</li>
+  <li>Worker performance dashboards</li>
+  <li>Coordinator organisation health</li>
+</ul>
+</div>
+
+<div class="task">
+<h3>25. Native mobile apps</h3>
+<ul>
+  <li>React Native wrapper (Capacitor) — shared codebase with web</li>
+  <li>App Store + Google Play submission</li>
+</ul>
+</div>
+
+<!-- ============================================================ -->
+<h2>Recommended next sprint order</h2>
+<p>Post-Monday sequence, ordered by dependency:</p>
+<ol>
+  <li><strong>Email verification</strong> — unblocks real registration</li>
+  <li><strong>Real password hashing + JWT</strong> — unblocks production readiness</li>
+  <li><strong>Progress notes</strong> — mandatory for invoicing</li>
+  <li><strong>MS365 SSO</strong> — Evgeny's requirement</li>
+  <li><strong>MFA</strong> — Evgeny's requirement</li>
+</ol>
+<p>Then VisualCare integration once Evgeny provides API access.</p>
+
+<div class="warn"><strong>Note:</strong> Progress notes (item 6) unblocks legal invoicing. If NDIS registration comes earlier than expected, this jumps to the top of the queue regardless of order.</div>
+
+<div class="footer">
+<strong>End of backlog.</strong><br>
+Version 1.0 · 18 September 2026 · CareWork Platform
+</div>
+
+</body>
+</html>

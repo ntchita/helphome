@@ -64,6 +64,9 @@ export default function WorkerHome() {
   const [recorded, setRecorded] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [flagging, setFlagging] = useState(false);
+  const [flagged, setFlagged] = useState(false);
+  const [flagError, setFlagError] = useState('');
 
   useEffect(() => {
     const userId = localStorage.getItem('helphome_user_id');
@@ -134,6 +137,28 @@ export default function WorkerHome() {
     }
   };
 
+  const flagSupport = async () => {
+    setFlagging(true);
+    setFlagError('');
+    try {
+      const userId = localStorage.getItem('helphome_user_id') || '';
+      const res = await fetch('/api/worker-hub/flag-support', {
+        method: 'POST',
+        headers: { 'x-user-id': userId },
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setFlagError(data.error === 'No coordinator assigned' ? 'No coordinator assigned to you yet.' : 'Could not flag. Try again.');
+        return;
+      }
+      setFlagged(true);
+    } catch {
+      setFlagError('Cannot reach the server.');
+    } finally {
+      setFlagging(false);
+    }
+  };
+
   if (loading) return <div className="card">Loading your hub...</div>;
   if (error || !hub) return <div className="card flash error">{error || 'Hub unavailable'}</div>;
 
@@ -142,7 +167,6 @@ export default function WorkerHome() {
   const hasRoster = contexts.includes('coordinator');
   const hasMarketplace = contexts.includes('independent');
 
-  // active context data
   const activeCapacity =
     activeTab === 'coordinator'
       ? hub.roster?.capacity
@@ -261,7 +285,16 @@ export default function WorkerHome() {
           </form>
           {recorded && <div className="flash success">✓ Check-in recorded — confidential. Never affects your ratings, bookings or pay.</div>}
           <p className="hub-explain">Confidential by design: your coordinator sees a status (Thriving / Steady / At risk), never your answers.</p>
-          <button className="btn btn-block" style={{ marginTop: '0.75rem' }}>Flag I need support</button>
+          <button
+            className="btn btn-block"
+            style={{ marginTop: '0.75rem' }}
+            onClick={flagSupport}
+            disabled={flagging || flagged}
+          >
+            {flagging ? 'Sending...' : flagged ? '✓ Support requested' : 'Flag I need support'}
+          </button>
+          {flagged && <div className="flash success">✓ Your coordinator has been notified. Someone will reach out soon.</div>}
+          {flagError && <div className="flash error">{flagError}</div>}
         </article>
       </section>
     </div>

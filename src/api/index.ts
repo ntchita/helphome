@@ -32,43 +32,6 @@ app.use('/*', cors({
   credentials: true,
 }));
 
-// =====================================================================
-// PILOT HARDCODED DATA — still served by /api/workers, /api/client-profile,
-// /api/interests, /api/bookings. Migration to DB pending.
-// =====================================================================
-const workers = [
-  {
-    id: 1, name: 'Jane Doe', role: 'Personal Care', bio: 'Experienced support worker who loves animals.',
-    interests: ['dogs', 'music', 'outdoors'], skills: ['Personal Care', 'Medication Management', 'Companionship'],
-    rate: 42, capacity: { booked: 22, total: 30 }, availability: 'Sat, Sun', checkins: [7, 8, 6, 7],
-    lastCheckin: 'Today', status: 'Steady' as const, checks: 'NDIS Worker Screening · Police check · References', verificationStatus: 'verified' as const
-  },
-  {
-    id: 2, name: 'Sarah Lee', role: 'Community Access', bio: 'Artist at heart, love cultural outings.',
-    interests: ['music', 'art', 'reading'], skills: ['Community Access', 'Art Programs', 'Social Support'],
-    rate: 38, capacity: { booked: 18, total: 30 }, availability: 'Mon, Wed, Sat', checkins: [8, 7, 8, 8],
-    lastCheckin: 'Yesterday', status: 'Thriving' as const, checks: 'NDIS Worker Screening · Police check', verificationStatus: 'verified' as const
-  },
-  {
-    id: 3, name: 'John Smith', role: 'Transport', bio: 'Former coach, great for active clients.',
-    interests: ['fitness', 'outdoors', 'cooking'], skills: ['Transport', 'Fitness Coaching', 'Meal Prep'],
-    rate: 40, capacity: { booked: 24, total: 30 }, availability: 'No openings this week', checkins: [5, 4, 6, 5],
-    lastCheckin: '2 days ago', status: 'At Risk' as const, checks: 'NDIS Worker Screening · References', verificationStatus: 'pending' as const
-  }
-];
-
-const clientProfile = { id: 'client-1', name: 'Demo Client', email: 'client@test.com', plan: 'starter', interests: ['dogs', 'music', 'outdoors'], needs: ['Personal Care', 'Companionship'] };
-const interests = ['Dogs', 'Music', 'Outdoors', 'Art', 'Fitness', 'Cooking', 'Reading', 'Gardening'];
-
-let bookings = [
-  { id: 'b1', clientName: 'Mark T.', workerId: '1', service: 'Personal Care', date: 'Fri 10:00', status: 'pending' },
-  { id: 'b2', clientName: 'Sarah L.', workerId: '2', service: 'Community Access', date: 'Wed 13:00', status: 'accepted' },
-  { id: 'b3', clientName: 'David W.', workerId: '3', service: 'Transport', date: 'Mon 09:00', status: 'declined' },
-  { id: 'b4', clientName: 'Emma P.', workerId: '1', service: 'Personal Care', date: 'Thu 14:00', status: 'accepted' },
-  { id: 'b5', clientName: 'Chris B.', workerId: '2', service: 'Community Access', date: 'Sat 11:00', status: 'pending' },
-  { id: 'b6', clientName: 'Lisa M.', workerId: '3', service: 'Transport', date: 'Tue 15:00', status: 'accepted' },
-];
-
 // Revenue is deliberately not from our DB — money is owned by Xero (via VisualCare).
 // TODO: replace with live Xero/VisualCare sync post-pilot.
 const revenue = [
@@ -76,9 +39,8 @@ const revenue = [
   { month: 'Jul', amount: 760 }, { month: 'Aug', amount: 940 }, { month: 'Sep', amount: 1180 },
 ];
 
-// In-memory stubs
+// In-memory stubs (to be migrated to DB post-pilot)
 const signups: any[] = [];
-const clientWellnessLogs: any[] = [];
 const welfareChats: Record<string, boolean> = {};
 
 // =====================================================================
@@ -560,8 +522,67 @@ app.get('/api/roster', async (c) => {
   return c.json(roster);
 });
 
-app.post('/api/roster/:id/welfare-chat', (c) => {
-  welfareChats[c.req.param('id')] = true;
+// Coordinator schedules a welfare chat with a worker
+app.post('/api/roster/:id/welfare-chat', async (c) => {
+  const userId = c.req.header('x-user-id');
+  if (!userId) return c.json({ error: 'Unauthenticated' }, 401);
+
+  const db = await getDb();
+  const [user] = await db.select().from(schema.users).where(eq(schema.users.id, userId)).limit(1);
+  if (!user) return c.json({ error: 'User not found' }, 404);
+  if (user.role !== 'coordinator' && user.role !== 'admin') return c.json({ error: 'Forbidden' }, 403);
+
+  const workerProfileId = c.req.param('id');
+  const [wp] = await db.select().from(schema.workerProfiles).where(eq(schema.workerProfiles.id, workerProfileId)).limit(1);
+  if (!wp) return c.json({ error: 'Worker not found' }, 404);
+  if (!wp.tenantId) return c.json({ error: 'Worker has no coordinator' }, 400);
+
+  const [coordinator] = await db.select().from(schema.users).where(and(
+    eq(schema.users.tenantId, wp.tenantId),
+    eq(schema.users.role, 'coordinator')
+  )).limit(1);
+  if (!coordinator) return c.json({ error: 'No coordinator for this worker' }, 404);
+
+  await db.insert(schema.welfareChats).values({
+    tenantId: wp.tenantId,
+    workerId: wp.id,
+    coordinatorId: coordinator.id,
+    scheduledAt: new Date(),
+    outcomeNotes: null,
+  });
+
+  return c.json({ ok: true });
+});
+
+// Worker flags need for support — creates a welfare chat request for their coordinator
+app.post('/api/worker-hub/flag-support', async (c) => {
+  const userId = c.req.header('x-user-id');
+  if (!userId) return c.json({ error: 'Unauthenticated' }, 401);
+
+  const db = await getDb();
+  const [user] = await db.select().from(schema.users).where(eq(schema.users.id, userId)).limit(1);
+  if (!user || user.role !== 'worker') return c.json({ error: 'Forbidden' }, 403);
+
+  const profiles = await db.select().from(schema.workerProfiles).where(eq(schema.workerProfiles.userId, user.id));
+  const coordProfile = profiles.find((p) => p.workerType === 'coordinator' && p.tenantId);
+  if (!coordProfile || !coordProfile.tenantId) {
+    return c.json({ error: 'No coordinator assigned' }, 400);
+  }
+
+  const [coordinator] = await db.select().from(schema.users).where(and(
+    eq(schema.users.tenantId, coordProfile.tenantId),
+    eq(schema.users.role, 'coordinator')
+  )).limit(1);
+  if (!coordinator) return c.json({ error: 'No coordinator available' }, 404);
+
+  await db.insert(schema.welfareChats).values({
+    tenantId: coordProfile.tenantId,
+    workerId: coordProfile.id,
+    coordinatorId: coordinator.id,
+    scheduledAt: new Date(),
+    outcomeNotes: 'Worker flagged need for support',
+  });
+
   return c.json({ ok: true });
 });
 
@@ -1113,7 +1134,7 @@ app.post('/api/login', async (c) => {
   return c.json({ ok: true, userId: user.id, role: user.role, workerContexts });
 });
 
-// --- In-memory stubs ---
+// --- In-memory stubs (to be migrated to DB) ---
 app.post('/api/auth/register', async (c) => {
   const body = await c.req.json();
   signups.push({ id: signups.length + 1, ...body, createdAt: new Date().toISOString() });

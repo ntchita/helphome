@@ -35,6 +35,8 @@ export const users = pgTable('users', {
   tenantId: uuid('tenant_id').references(() => tenants.id),
   email: text('email').notNull().unique(),
   passwordHash: text('password_hash'),
+  hashAlgo: text('hash_algo').notNull().default('bcrypt'),
+  hashVersion: integer('hash_version').notNull().default(1),
   entraObjectId: text('entra_object_id'),
   role: roleEnum('role').notNull(),
   fullName: text('full_name'),

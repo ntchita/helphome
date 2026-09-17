@@ -1,6 +1,7 @@
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { eq, and, inArray, desc } from 'drizzle-orm';
+import bcrypt from 'bcryptjs';
 import { getDb, schema } from '../db/connection.ts';
 import { calculateWellnessMatch, rankWorkers } from './utils/matcher.ts';
 
@@ -1158,7 +1159,16 @@ app.post('/api/login', async (c) => {
   const db = await getDb();
   const body = await c.req.json();
   const [user] = await db.select().from(schema.users).where(eq(schema.users.email, body.email)).limit(1);
-  if (!user || user.passwordHash !== body.password) return c.json({ ok: false }, 401);
+  if (!user || !user.passwordHash) return c.json({ ok: false }, 401);
+
+  // Support bcrypt (bcrypt hash) and legacy plaintext during migration
+  const isBcrypt = user.passwordHash.startsWith('$2');
+  const passwordOk = isBcrypt
+    ? await bcrypt.compare(String(body.password || ''), user.passwordHash)
+    : user.passwordHash === body.password;
+
+  if (!passwordOk) return c.json({ ok: false }, 401);
+
   await db.update(schema.users).set({ lastLogin: new Date() }).where(eq(schema.users.id, user.id));
 
   let workerContexts: string[] = [];

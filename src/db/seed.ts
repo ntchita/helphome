@@ -1,4 +1,5 @@
 import { eq } from 'drizzle-orm';
+import bcrypt from 'bcryptjs';
 import type { PgliteDatabase } from 'drizzle-orm/pglite';
 import * as s from './schema.ts';
 
@@ -6,8 +7,11 @@ export async function seed(db: PgliteDatabase<typeof s>) {
   const [existing] = await db.select().from(s.tenants).limit(1);
   if (existing) return;
 
+  // Hash "test" once — all demo users share the same password
+  const demoHash = await bcrypt.hash('test', 10);
+
   await db.insert(s.users).values({
-    email: 'admin@carework.au', passwordHash: 'test', role: 'admin', fullName: 'Nikolai Tchitachvili', mfaEnabled: true
+    email: 'admin@carework.au', passwordHash: demoHash, role: 'admin', fullName: 'Nikolai Tchitachvili', mfaEnabled: true
   });
 
   const [helphome] = await db.insert(s.tenants).values({
@@ -15,7 +19,7 @@ export async function seed(db: PgliteDatabase<typeof s>) {
   }).returning();
 
   await db.insert(s.users).values({
-    tenantId: helphome.id, email: 'tonia@helphome.au', passwordHash: 'test', role: 'coordinator', fullName: 'Tonia Fridlis', mfaEnabled: true
+    tenantId: helphome.id, email: 'tonia@helphome.au', passwordHash: demoHash, role: 'coordinator', fullName: 'Tonia Fridlis', mfaEnabled: true
   });
 
   // --- CLIENTS (10) ---
@@ -26,7 +30,7 @@ export async function seed(db: PgliteDatabase<typeof s>) {
   const clientMap: Record<string, { userId: string; profileId: string }> = {};
   for (const name of clientData) {
     const email = `${name.toLowerCase().replace(' ', '.')}@client.com`;
-    const [user] = await db.insert(s.users).values({ email, passwordHash: 'test', role: 'client', fullName: name }).returning();
+    const [user] = await db.insert(s.users).values({ email, passwordHash: demoHash, role: 'client', fullName: name }).returning();
     const seedInterests: Record<string, string[]> = {
       'Jane Doe': ['dogs', 'music', 'outdoors'],
       'Mark Taylor': ['fitness', 'outdoors'],
@@ -62,7 +66,7 @@ export async function seed(db: PgliteDatabase<typeof s>) {
   };
   for (const name of indData) {
     const email = `${name.toLowerCase().replace(' ', '.')}@worker.com`;
-    const [user] = await db.insert(s.users).values({ email, passwordHash: 'test', role: 'worker', fullName: name }).returning();
+    const [user] = await db.insert(s.users).values({ email, passwordHash: demoHash, role: 'worker', fullName: name }).returning();
     const [profile] = await db.insert(s.workerProfiles).values({
       userId: user.id, tenantId: null, workerType: 'independent', abn: '11111111111',
       bio: 'Independent support worker.', skills: ['Personal Care'],
@@ -81,7 +85,7 @@ export async function seed(db: PgliteDatabase<typeof s>) {
   const empMap: Record<string, { userId: string; profileId: string }> = {};
   for (const name of empData) {
     const email = `${name.toLowerCase().replace(' ', '.')}@helphome.au`;
-    const [user] = await db.insert(s.users).values({ tenantId: helphome.id, email, passwordHash: 'test', role: 'worker', fullName: name }).returning();
+    const [user] = await db.insert(s.users).values({ tenantId: helphome.id, email, passwordHash: demoHash, role: 'worker', fullName: name }).returning();
     const [profile] = await db.insert(s.workerProfiles).values({
       userId: user.id, tenantId: helphome.id, workerType: 'coordinator', abn: '22222222222',
       bio: 'HelpHome roster worker.', skills: ['Community Access'], interests: ['fitness'],
@@ -101,7 +105,7 @@ export async function seed(db: PgliteDatabase<typeof s>) {
   ];
   const contMap: Record<string, { userId: string; coord: string; ind?: string }> = {};
   for (const c of contData) {
-    const [user] = await db.insert(s.users).values({ tenantId: helphome.id, email: c.email, passwordHash: 'test', role: 'worker', fullName: c.name }).returning();
+    const [user] = await db.insert(s.users).values({ tenantId: helphome.id, email: c.email, passwordHash: demoHash, role: 'worker', fullName: c.name }).returning();
 
     const [coordProfile] = await db.insert(s.workerProfiles).values({
       userId: user.id, tenantId: helphome.id, workerType: 'coordinator', abn: '33333333333',
@@ -131,7 +135,6 @@ export async function seed(db: PgliteDatabase<typeof s>) {
   const hour = 3_600_000;
   const daysAgo = (d: number) => new Date(now - d * day);
 
-  // (a) Sarah — marketplace offer
   await db.insert(s.shifts).values({
     tenantId: null,
     clientId: clientMap['Mark Taylor'].profileId,
@@ -145,7 +148,6 @@ export async function seed(db: PgliteDatabase<typeof s>) {
     locationAddress: 'Bondi',
   });
 
-  // (b) Sarah — HelpHome roster shifts
   const rosterData = [
     { client: 'Jane Doe',    service: 'Personal Care',    daysAhead: 1, status: 'accepted' as const, location: 'Bondi' },
     { client: 'Priya Kumar', service: 'Community Access', daysAhead: 2, status: 'accepted' as const, location: 'Parramatta' },
@@ -166,7 +168,6 @@ export async function seed(db: PgliteDatabase<typeof s>) {
     });
   }
 
-  // (c) Mia — marketplace offer
   await db.insert(s.shifts).values({
     tenantId: null,
     clientId: clientMap['Jane Doe'].profileId,
@@ -181,32 +182,29 @@ export async function seed(db: PgliteDatabase<typeof s>) {
   });
 
   // =====================================================================
-  // WELLNESS LOGS — every HelpHome roster worker (20) so CoordinatorHub
-  // shows a realistic mix of Thriving / Steady / At Risk
+  // WELLNESS LOGS
   // =====================================================================
   const rosterWellness = [
-    // contractors
-    { name: 'Sarah Johnson',   scores: [6, 7, 5, 7] },   // Steady
-    { name: 'James Lee',       scores: [8, 8, 7, 8] },   // Thriving
-    { name: 'Mary Garcia',     scores: [7, 8, 8, 9] },   // Thriving
-    { name: 'Robert Martinez', scores: [6, 6, 7, 6] },   // Steady
-    { name: 'Linda Robinson',  scores: [5, 4, 5, 4] },   // At risk
-    { name: 'Michael Clark',   scores: [7, 7, 8, 7] },   // Thriving
-    // employees
-    { name: 'Tom Harris',          scores: [8, 8, 8, 9] },  // Thriving
-    { name: 'Emma Watson',         scores: [7, 7, 6, 7] },  // Steady
-    { name: 'Jack Sparrow',        scores: [6, 5, 6, 5] },  // Steady
-    { name: 'Lily Allen',          scores: [8, 7, 8, 8] },  // Thriving
-    { name: 'Ben Affleck',         scores: [7, 8, 7, 7] },  // Steady
-    { name: 'Mila Kunis',          scores: [6, 6, 7, 6] },  // Steady
-    { name: 'Ryan Gosling',        scores: [4, 5, 4, 5] },  // At risk
-    { name: 'Emma Stone',          scores: [7, 8, 7, 8] },  // Thriving
-    { name: 'Chris Evans',         scores: [8, 8, 7, 8] },  // Thriving
-    { name: 'Scarlett Johansson',  scores: [6, 7, 6, 7] },  // Steady
-    { name: 'Mark Ruffalo',        scores: [7, 7, 8, 7] },  // Thriving
-    { name: 'Jeremy Renner',       scores: [5, 5, 6, 5] },  // Steady
-    { name: 'Paul Rudd',           scores: [8, 7, 8, 7] },  // Thriving
-    { name: 'Brie Larson',         scores: [7, 7, 7, 7] },  // Steady
+    { name: 'Sarah Johnson',   scores: [6, 7, 5, 7] },
+    { name: 'James Lee',       scores: [8, 8, 7, 8] },
+    { name: 'Mary Garcia',     scores: [7, 8, 8, 9] },
+    { name: 'Robert Martinez', scores: [6, 6, 7, 6] },
+    { name: 'Linda Robinson',  scores: [5, 4, 5, 4] },
+    { name: 'Michael Clark',   scores: [7, 7, 8, 7] },
+    { name: 'Tom Harris',          scores: [8, 8, 8, 9] },
+    { name: 'Emma Watson',         scores: [7, 7, 6, 7] },
+    { name: 'Jack Sparrow',        scores: [6, 5, 6, 5] },
+    { name: 'Lily Allen',          scores: [8, 7, 8, 8] },
+    { name: 'Ben Affleck',         scores: [7, 8, 7, 7] },
+    { name: 'Mila Kunis',          scores: [6, 6, 7, 6] },
+    { name: 'Ryan Gosling',        scores: [4, 5, 4, 5] },
+    { name: 'Emma Stone',          scores: [7, 8, 7, 8] },
+    { name: 'Chris Evans',         scores: [8, 8, 7, 8] },
+    { name: 'Scarlett Johansson',  scores: [6, 7, 6, 7] },
+    { name: 'Mark Ruffalo',        scores: [7, 7, 8, 7] },
+    { name: 'Jeremy Renner',       scores: [5, 5, 6, 5] },
+    { name: 'Paul Rudd',           scores: [8, 7, 8, 7] },
+    { name: 'Brie Larson',         scores: [7, 7, 7, 7] },
   ];
   const logTypes = ['load', 'supported', 'balance', 'load'];
   for (const rw of rosterWellness) {
@@ -225,7 +223,6 @@ export async function seed(db: PgliteDatabase<typeof s>) {
     }
   }
 
-  // Mia — independent (no tenant)
   await db.insert(s.wellnessLogs).values([
     { tenantId: null, userId: indMap['Mia Chen'].userId, audience: 'worker', logType: 'load',      score: 5, createdAt: daysAgo(4) },
     { tenantId: null, userId: indMap['Mia Chen'].userId, audience: 'worker', logType: 'supported', score: 6, createdAt: daysAgo(3) },
@@ -233,15 +230,12 @@ export async function seed(db: PgliteDatabase<typeof s>) {
     { tenantId: null, userId: indMap['Mia Chen'].userId, audience: 'worker', logType: 'load',      score: 7, createdAt: daysAgo(1) },
   ]);
 
-  // Jane — client
   await db.insert(s.wellnessLogs).values([
     { tenantId: null, userId: clientMap['Jane Doe'].userId, audience: 'client', logType: 'mood',         score: 8, createdAt: daysAgo(3) },
     { tenantId: null, userId: clientMap['Jane Doe'].userId, audience: 'client', logType: 'goals',        score: 7, createdAt: daysAgo(2) },
     { tenantId: null, userId: clientMap['Jane Doe'].userId, audience: 'client', logType: 'satisfaction', score: 9, createdAt: daysAgo(1) },
   ]);
 
-  // Demo realism: force 2 HelpHome roster workers to pending so Tonia's
-  // verification queue has something she can action.
   const pendingNames = ['Jack Sparrow', 'Jeremy Renner'];
   for (const name of pendingNames) {
     const ref = empMap[name];
@@ -251,5 +245,5 @@ export async function seed(db: PgliteDatabase<typeof s>) {
       .where(eq(s.workerProfiles.id, ref.profileId));
   }
 
-  console.log('[seed] CareWork + HelpHome + 40 users + 5 shifts + 91 wellness logs inserted');
+  console.log('[seed] CareWork + HelpHome + 40 users + 5 shifts + 91 wellness logs inserted (passwords bcrypt-hashed)');
 }

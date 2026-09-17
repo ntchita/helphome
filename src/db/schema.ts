@@ -187,6 +187,9 @@ export const signupLeads = pgTable('signup_leads', {
   email: text('email').notNull(),
   orgName: text('org_name'),
   interests: jsonb('interests').$type<string[]>(),
+  fundingStream: fundingEnum('funding_stream'),
+  planManagerName: text('plan_manager_name'),
+  preferredWorkerId: uuid('preferred_worker_id').references(() => workerProfiles.id),
   createdAt: timestamp('created_at', tz).notNull().defaultNow(),
 });
 

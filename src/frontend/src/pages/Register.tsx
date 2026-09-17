@@ -3,6 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 
 type Door = 'client' | 'worker' | 'coordinator' | null;
 type MatchFilter = 'all' | '50' | '75';
+type Funding = '' | 'private' | 'ndis' | 'hcp';
 
 interface RegWorker {
   id: string;
@@ -26,6 +27,8 @@ export default function Register() {
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [org, setOrg] = useState('');
+  const [funding, setFunding] = useState<Funding>('');
+  const [planManagerName, setPlanManagerName] = useState('');
   const [picked, setPicked] = useState<string[]>([]);
   const [done, setDone] = useState(false);
   const [error, setError] = useState('');
@@ -38,6 +41,8 @@ export default function Register() {
   const [matchFilter, setMatchFilter] = useState<MatchFilter>('all');
   const [interestFilter, setInterestFilter] = useState<string>('all');
   const [selectedWorker, setSelectedWorker] = useState<string>('');
+  const [workerSaved, setWorkerSaved] = useState(false);
+  const [savingWorker, setSavingWorker] = useState(false);
 
   useEffect(() => {
     Promise.all([
@@ -56,8 +61,11 @@ export default function Register() {
     setPicked((prev) => (prev.includes(i) ? prev.filter((x) => x !== i) : [...prev, i]));
 
   const resetForm = () => {
-    setName(''); setEmail(''); setPassword(''); setConfirm(''); setOrg(''); setPicked([]); setError('');
+    setName(''); setEmail(''); setPassword(''); setConfirm(''); setOrg('');
+    setFunding(''); setPlanManagerName('');
+    setPicked([]); setError('');
     setSelectedWorker('');
+    setWorkerSaved(false);
     setMatchFilter('all');
     setInterestFilter('all');
   };
@@ -69,19 +77,53 @@ export default function Register() {
     if (password.length < 8) { setError('Password must be at least 8 characters.'); return; }
     if (password !== confirm) { setError('Passwords do not match.'); return; }
     if (requireInterests && picked.length === 0) { setError('Pick at least one interest so we can match you.'); return; }
+    if (door === 'client' && !funding) { setError('Please tell us how your care is funded.'); return; }
+    if (door === 'client' && funding === 'ndis' && !planManagerName) { setError('Please tell us who manages your NDIS plan.'); return; }
     setError('');
     setSaving(true);
     try {
-      await fetch('/api/auth/register', {
+      const res = await fetch('/api/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ door, name, email, orgName: org || undefined, interests: picked }),
+        body: JSON.stringify({
+          door, name, email,
+          orgName: org || undefined,
+          interests: picked,
+          fundingStream: door === 'client' ? funding : undefined,
+          planManagerName: door === 'client' && funding === 'ndis' ? planManagerName : undefined,
+        }),
       });
+      const data = await res.json();
+      if (door === 'client' && data?.lead?.preferredWorkerId) {
+        setSelectedWorker(data.lead.preferredWorkerId);
+        setWorkerSaved(true);
+      }
       setDone(true);
     } catch {
       setError('Cannot reach the server. Is the API running?');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const savePreferredWorker = async () => {
+    if (!selectedWorker) return;
+    setSavingWorker(true);
+    try {
+      await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          door: 'client', name, email,
+          interests: picked,
+          fundingStream: funding || undefined,
+          planManagerName: funding === 'ndis' ? planManagerName : undefined,
+          preferredWorkerId: selectedWorker,
+        }),
+      });
+      setWorkerSaved(true);
+    } finally {
+      setSavingWorker(false);
     }
   };
 
@@ -100,7 +142,6 @@ export default function Register() {
       );
     }
 
-    // Only workers who share at least one picked interest are eligible.
     const eligible = ranked.filter((w) => w.pct > 0);
 
     const filtered = eligible.filter((w) => {
@@ -171,7 +212,7 @@ export default function Register() {
                 key={w.id}
                 className="card worker-card"
                 style={{ cursor: 'pointer', outline: selected ? '2px solid var(--hh-blue)' : 'none' }}
-                onClick={() => setSelectedWorker(selected ? '' : w.id)}
+                onClick={() => !workerSaved && setSelectedWorker(selected ? '' : w.id)}
               >
                 <div>
                   <div className="worker-head">
@@ -187,6 +228,7 @@ export default function Register() {
                 </div>
                 <button
                   className={`btn btn-block ${selected ? 'btn-success' : ''}`}
+                  disabled={workerSaved}
                   onClick={(e) => {
                     e.stopPropagation();
                     setSelectedWorker(selected ? '' : w.id);
@@ -199,9 +241,20 @@ export default function Register() {
           })}
         </section>
 
-        {selectedWorker && (
+        {selectedWorker && !workerSaved && (
+          <button
+            className="btn btn-block"
+            style={{ marginTop: '1.5rem' }}
+            disabled={savingWorker}
+            onClick={savePreferredWorker}
+          >
+            {savingWorker ? 'Saving…' : `Confirm — match me with ${ranked.find((w) => w.id === selectedWorker)?.name}`}
+          </button>
+        )}
+
+        {workerSaved && (
           <div className="flash success" style={{ marginTop: '1.5rem', textAlign: 'center' }}>
-            Noted — we'll match you with {ranked.find((w) => w.id === selectedWorker)?.name} once your account is verified.
+            ✓ Noted — we'll match you with {ranked.find((w) => w.id === selectedWorker)?.name} once your account is verified.
           </div>
         )}
 
@@ -251,7 +304,7 @@ export default function Register() {
     );
   }
 
-  // ---- Forms (unchanged from your last version) ----
+  // ---- Client form ----
   if (door === 'client') {
     return (
       <div className="register-page">
@@ -264,6 +317,33 @@ export default function Register() {
           <div><label>Email</label><input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" required /></div>
           <div><label>Password</label><input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Min 8 characters" required /></div>
           <div><label>Confirm password</label><input type="password" value={confirm} onChange={(e) => setConfirm(e.target.value)} placeholder="Re-enter password" required /></div>
+
+          <div>
+            <label>How is your care funded?</label>
+            <select value={funding} onChange={(e) => setFunding(e.target.value as Funding)} required>
+              <option value="" disabled>Select…</option>
+              <option value="private">Self-funded (private)</option>
+              <option value="ndis">NDIS</option>
+              <option value="hcp">Aged Care (HCP)</option>
+            </select>
+          </div>
+
+          {funding === 'ndis' && (
+            <div>
+              <label>Who manages your NDIS plan?</label>
+              <select value={planManagerName} onChange={(e) => setPlanManagerName(e.target.value)} required>
+                <option value="" disabled>Select…</option>
+                <option value="Self-managed">Self-managed</option>
+                <option value="Plan-managed">Plan-managed</option>
+                <option value="NDIA-managed">NDIA-managed</option>
+                <option value="PlanCare">PlanCare</option>
+                <option value="Australian Unity">Australian Unity</option>
+                <option value="Trilogy Care">Trilogy Care</option>
+                <option value="Other">Other</option>
+              </select>
+            </div>
+          )}
+
           <div>
             <label>What matters to you? (pick any)</label>
             {loading ? (

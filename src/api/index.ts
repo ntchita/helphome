@@ -1151,6 +1151,12 @@ app.post('/api/auth/register', async (c) => {
     .where(and(eq(schema.signupLeads.email, email), eq(schema.signupLeads.door, door)))
     .limit(1);
 
+  const fundingStream = ['private', 'ndis', 'hcp'].includes(String(body.fundingStream))
+    ? String(body.fundingStream) as 'private' | 'ndis' | 'hcp'
+    : null;
+  const planManagerName = body.planManagerName ? String(body.planManagerName) : null;
+  const preferredWorkerId = body.preferredWorkerId ? String(body.preferredWorkerId) : null;
+
   if (existing.length > 0) {
     await db
       .update(schema.signupLeads)
@@ -1158,9 +1164,22 @@ app.post('/api/auth/register', async (c) => {
         name,
         orgName: body.orgName ? String(body.orgName) : null,
         interests: Array.isArray(body.interests) ? body.interests : null,
+        fundingStream,
+        planManagerName,
+        preferredWorkerId,
       })
       .where(eq(schema.signupLeads.id, existing[0].id));
-    return c.json({ success: true, message: 'Application updated (already on file)', updated: true }, 200);
+      return c.json({
+      success: true,
+      message: 'Application updated (already on file)',
+      updated: true,
+      lead: {
+        id: existing[0].id,
+        preferredWorkerId: preferredWorkerId ?? existing[0].preferredWorkerId,
+        fundingStream: fundingStream ?? existing[0].fundingStream,
+        planManagerName: planManagerName ?? existing[0].planManagerName,
+      },
+    }, 200);
   }
 
   await db.insert(schema.signupLeads).values({
@@ -1169,6 +1188,9 @@ app.post('/api/auth/register', async (c) => {
     email,
     orgName: body.orgName ? String(body.orgName) : null,
     interests: Array.isArray(body.interests) ? body.interests : null,
+    fundingStream,
+    planManagerName,
+    preferredWorkerId,
   });
 
   return c.json({ success: true, message: 'Registered (pilot waitlist)' }, 201);

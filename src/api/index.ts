@@ -3,7 +3,7 @@ import { cors } from 'hono/cors';
 import { eq, and, inArray, desc, gte } from 'drizzle-orm';
 import bcrypt from 'bcryptjs';
 import { signToken, verifyToken, extractBearer } from './auth.ts';
-import { sendVerificationEmail } from './email.ts';
+import { sendVerificationEmail, sendPasswordResetEmail } from './email.ts';
 import { randomBytes, createHash } from 'crypto';
 import { getDb, schema } from '../db/connection.ts';
 import { calculateWellnessMatch, rankWorkers } from './utils/matcher.ts';
@@ -1462,6 +1462,89 @@ app.post('/api/auth/resend-verification', async (c) => {
   }
 
   return c.json({ ok: true });
+});
+
+// --- Password reset ---
+const RESET_TOKEN_TTL_HOURS = 1;
+
+app.post('/api/auth/forgot-password', async (c) => {
+  const db = await getDb();
+  const body = await c.req.json();
+  const email = String(body.email || '').trim().toLowerCase();
+  if (!email) return c.json({ error: 'Missing email' }, 400);
+
+  const [user] = await db.select().from(schema.users).where(eq(schema.users.email, email)).limit(1);
+
+  // Always return ok (don't leak whether the email exists)
+  if (!user) return c.json({ ok: true });
+
+  // Invalidate any old unused reset tokens for this user
+  await db.update(schema.verificationTokens)
+    .set({ usedAt: new Date() })
+    .where(and(
+      eq(schema.verificationTokens.userId, user.id),
+      eq(schema.verificationTokens.purpose, 'password_reset')
+    ));
+
+  const rawToken = randomBytes(32).toString('hex');
+  const tokenHash = createHash('sha256').update(rawToken).digest('hex');
+  const expiresAt = new Date(Date.now() + RESET_TOKEN_TTL_HOURS * 60 * 60 * 1000);
+
+  await db.insert(schema.verificationTokens).values({
+    userId: user.id,
+    token: tokenHash,
+    purpose: 'password_reset',
+    expiresAt,
+  });
+
+  const origin = c.req.header('origin') || 'http://localhost:5173';
+  const resetUrl = `${origin}/reset-password?token=${rawToken}`;
+  console.log('📧 [DEV] Password reset URL:', resetUrl);
+
+  try {
+    await sendPasswordResetEmail(user.email, user.fullName || 'there', resetUrl);
+  } catch (e: any) {
+    console.error('❌ Password reset email failed:', e.message);
+  }
+
+  return c.json({ ok: true });
+});
+
+app.post('/api/auth/reset-password', async (c) => {
+  const db = await getDb();
+  const body = await c.req.json();
+  const rawToken = String(body.token || '');
+  const newPassword = String(body.password || '');
+
+  if (!rawToken) return c.json({ error: 'Missing token' }, 400);
+  if (newPassword.length < 8) return c.json({ error: 'Password must be at least 8 characters' }, 400);
+
+  const tokenHash = createHash('sha256').update(rawToken).digest('hex');
+  const [row] = await db
+    .select()
+    .from(schema.verificationTokens)
+    .where(and(
+      eq(schema.verificationTokens.token, tokenHash),
+      eq(schema.verificationTokens.purpose, 'password_reset')
+    ))
+    .limit(1);
+
+  if (!row) return c.json({ error: 'Invalid token' }, 404);
+  if (row.usedAt) return c.json({ error: 'Token already used' }, 410);
+  if (new Date(row.expiresAt).getTime() < Date.now()) {
+    return c.json({ error: 'Token expired' }, 410);
+  }
+
+  const passwordHash = await bcrypt.hash(newPassword, 10);
+  await db.update(schema.users)
+    .set({ passwordHash, hashAlgo: 'bcrypt', hashVersion: 1 })
+    .where(eq(schema.users.id, row.userId));
+
+  await db.update(schema.verificationTokens)
+    .set({ usedAt: new Date() })
+    .where(eq(schema.verificationTokens.id, row.id));
+
+  return c.json({ ok: true, message: 'Password updated' });
 });
 
 // --- Email verification ---

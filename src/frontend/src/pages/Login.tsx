@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 
 interface DemoAccount { label: string; email: string; }
 
@@ -91,7 +91,8 @@ export default function Login({ onLogin }: { onLogin: () => void }) {
         </button>
       </form>
       <div className="login-footer">
-        <p>New to CareWork? Accounts are created during pilot onboarding.</p>
+        <p><Link to="/forgot-password">Forgot password?</Link></p>
+        <p>New to CareWork? <Link to="/register">Create an account</Link></p>
       </div>
     </div>
   );

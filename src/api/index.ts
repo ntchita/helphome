@@ -1413,11 +1413,16 @@ app.post('/api/auth/register', async (c) => {
     // Don't fail the registration — user can request resend later
   }
 
+  const isProd =
+    (typeof process !== 'undefined' && process.env?.ENVIRONMENT === 'production') ||
+    (globalThis as any).__ENVIRONMENT === 'production';
+
   return c.json({
     success: true,
     message: 'Account created. Check your email to verify.',
     userId: newUser.id,
     needsVerification: true,
+    devToken: isProd ? undefined : rawToken,
   }, 201);
 });
 
@@ -1507,7 +1512,11 @@ app.post('/api/auth/forgot-password', async (c) => {
     console.error('❌ Password reset email failed:', e.message);
   }
 
-  return c.json({ ok: true });
+  const isProd =
+    (typeof process !== 'undefined' && process.env?.ENVIRONMENT === 'production') ||
+    (globalThis as any).__ENVIRONMENT === 'production';
+
+  return c.json({ ok: true, devToken: isProd ? undefined : rawToken });
 });
 
 app.post('/api/auth/reset-password', async (c) => {
@@ -1606,6 +1615,31 @@ app.post('/api/wellness', async (c) => {
   });
 
   return c.json({ success: true, message: 'Wellness check recorded' }, 201);
+});
+
+// DEV-ONLY: remove test data created by smoke runs.
+app.post('/api/_test/cleanup', async (c) => {
+  const db = await getDb();
+  const testEmails = await db
+    .select({ id: schema.users.id, email: schema.users.email })
+    .from(schema.users);
+  const targets = testEmails.filter((u) =>
+    u.email.endsWith('@test.com') || u.email.endsWith('@example.com')
+  );
+  const ids = targets.map((t) => t.id);
+
+  if (ids.length > 0) {
+    await db.delete(schema.verificationTokens).where(inArray(schema.verificationTokens.userId, ids));
+    await db.delete(schema.welfareChats).where(inArray(schema.welfareChats.workerId, ids));
+    await db.delete(schema.wellnessLogs).where(inArray(schema.wellnessLogs.userId, ids));
+    await db.delete(schema.workerProfiles).where(inArray(schema.workerProfiles.userId, ids));
+    await db.delete(schema.clientProfiles).where(inArray(schema.clientProfiles.userId, ids));
+    await db.delete(schema.loginAttempts).where(inArray(schema.loginAttempts.email, targets.map((t) => t.email)));
+    await db.delete(schema.signupLeads).where(inArray(schema.signupLeads.email, targets.map((t) => t.email)));
+    await db.delete(schema.users).where(inArray(schema.users.id, ids));
+  }
+
+  return c.json({ ok: true, removed: ids.length });
 });
 
 // DEV-ONLY: table counts for smoke tests. Safe to remove before production.

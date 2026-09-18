@@ -1,4 +1,5 @@
 const BASE = process.env.SMOKE_API || 'http://localhost:8787';
+await fetch(`${BASE}/api/_test/cleanup`, { method: 'POST' }).catch(() => {});
 let pass = 0, fail = 0;
 const results = [];
 
@@ -123,6 +124,92 @@ await check('Unauthenticated blocked', async () => {
 await check('Wrong role blocked', async () => {
   const r = await api('/api/roster', { userId: clientId });
   return r.status === 403;
+});
+
+// ============================================================
+// AUTH 1D + 1E — registration, verification, password reset
+// ============================================================
+console.log('\n--- Auth: registration + verification + reset ---');
+
+const uniqueEmail = `smoke-auth-${Date.now()}@test.com`;
+const originalPassword = 'test1234';
+const newPassword = 'newpass5678';
+let verifyToken = null;
+let resetToken = null;
+
+await check('POST /api/auth/register returns devToken', async () => {
+  const r = await api('/api/auth/register', {
+    method: 'POST',
+    body: { door: 'client', name: 'Smoke Auth', email: uniqueEmail, password: originalPassword, interests: ['dogs'] },
+  });
+  if (r.status !== 201) return false;
+  if (!r.data.devToken) return false;
+  verifyToken = r.data.devToken;
+  return true;
+});
+
+await check('POST /api/login blocked before verify', async () => {
+  const r = await api('/api/login', {
+    method: 'POST',
+    body: { email: uniqueEmail, password: originalPassword },
+  });
+  return r.status === 403 && r.data.needsVerification === true;
+});
+
+await check('GET /api/verify-email/:token succeeds', async () => {
+  const r = await api(`/api/verify-email/${verifyToken}`);
+  return r.data.ok === true;
+});
+
+await check('POST /api/login succeeds after verify', async () => {
+  const r = await api('/api/login', {
+    method: 'POST',
+    body: { email: uniqueEmail, password: originalPassword },
+  });
+  return r.status === 200 && r.data.ok === true && !!r.data.token;
+});
+
+await check('POST /api/auth/forgot-password returns devToken', async () => {
+  const r = await api('/api/auth/forgot-password', {
+    method: 'POST',
+    body: { email: uniqueEmail },
+  });
+  if (r.status !== 200) return false;
+  if (!r.data.devToken) return false;
+  resetToken = r.data.devToken;
+  return true;
+});
+
+await check('POST /api/auth/reset-password succeeds', async () => {
+  const r = await api('/api/auth/reset-password', {
+    method: 'POST',
+    body: { token: resetToken, password: newPassword },
+  });
+  return r.status === 200 && r.data.ok === true;
+});
+
+await check('POST /api/login works with new password', async () => {
+  const r = await api('/api/login', {
+    method: 'POST',
+    body: { email: uniqueEmail, password: newPassword },
+  });
+  return r.status === 200 && r.data.ok === true;
+});
+
+await check('POST /api/login fails with old password', async () => {
+  const r = await api('/api/login', {
+    method: 'POST',
+    body: { email: uniqueEmail, password: originalPassword },
+  });
+  return r.status === 401;
+});
+
+await check('POST /api/auth/forgot-password for unknown email is silent', async () => {
+  const r = await api('/api/auth/forgot-password', {
+    method: 'POST',
+    body: { email: 'nobody-here@nowhere.test' },
+  });
+  return r.status === 200 && r.data.ok === true && r.data.devToken === undefined;
 });
 
 console.log(results.join('\n'));

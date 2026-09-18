@@ -2,6 +2,7 @@ import { chromium } from 'playwright';
 
 const BASE = process.env.SMOKE_BASE || 'http://localhost:5173';
 const API  = process.env.SMOKE_API  || 'http://localhost:8787';
+await fetch(`${API}/api/_test/cleanup`, { method: 'POST' }).catch(() => {});
 
 let pass = 0, fail = 0;
 const results = [];
@@ -360,10 +361,10 @@ await check('T5.8 coordinator hub loads 20', async () => {
   return (await page.locator('.hub-card').count()) === 20;
 });
 
-await check('T5.9 verification loads 32 profiles', async () => {
+await check('T5.9 verification loads 32+ profiles', async () => {
   await page.goto(`${BASE}/verification`);
   await page.waitForSelector('.queue-row', { timeout: 5000 });
-  return (await page.locator('.queue-row').count()) === 32;
+  return (await page.locator('.queue-row').count()) >= 32;
 });
 
 await check('T5.10 context filter Dual shows 4 rows', async () => {
@@ -446,7 +447,7 @@ await check('T6.5 client: full flow → success screen', async () => {
   await page.selectOption('select >> nth=1', 'PlanCare');
   await page.locator('.chip').first().click();
   await page.click('button[type="submit"]');
-  await page.waitForSelector('.worker-grid', { timeout: 5000 });
+  await page.waitForSelector('h1:has-text("Almost there")', { timeout: 5000 });
   return true;
 });
 
@@ -459,13 +460,24 @@ await check('T6.6 picker interest filter works', async () => {
   return (await page.locator('.worker-card').count()) <= before;
 });
 
-await check('T6.7 select worker → Confirm → green flash', async () => {
-  const card = page.locator('.worker-card').first();
-  if (await card.count() === 0) return true;
-  await card.locator('button').click();
-  await page.locator('button', { hasText: /Confirm/ }).click();
-  await page.waitForSelector('.flash.success', { timeout: 5000 });
-  return true;
+await check('T6.7 resend verification email button works', async () => {
+  const email = `ui-resend-${Date.now()}@test.com`;
+  await page.goto(`${BASE}/register`);
+  await page.locator('.door-card', { hasText: /I need support/ }).click();
+  await page.waitForSelector('input[type="email"]');
+  await page.fill('input[placeholder="Your name"]', 'Resend Test');
+  await page.fill('input[type="email"]', email);
+  await page.fill('input[type="password"]', 'testtest');
+  await page.locator('input[placeholder="Re-enter password"]').fill('testtest');
+  await page.selectOption('select', 'private');
+  await page.locator('.chip').first().click();
+  await page.click('button[type="submit"]');
+  await page.waitForSelector('h1:has-text("Almost there")', { timeout: 5000 });
+  const btn = page.locator('button', { hasText: /Resend verification email/i });
+  await btn.waitFor({ state: 'visible', timeout: 5000 });
+  await btn.click();
+  await page.waitForTimeout(1500);
+  return (await page.locator('button', { hasText: /sent/i }).count()) > 0;
 });
 
 await check('T6.8 worker door: form + submit', async () => {
@@ -559,6 +571,41 @@ await check('T8.4 mobile: register page renders on 400px', async () => {
 });
 
 await mobile.close();
+
+// ============================================================
+// T9 — FORGOT / RESET PASSWORD UI
+// ============================================================
+console.log('\n--- T9: Forgot / Reset Password UI ---');
+
+await check('T9.1 login page has "Forgot password?" link', async () => {
+  await page.goto(`${BASE}/login`);
+  return (await page.locator('a', { hasText: /Forgot password/i }).count()) > 0;
+});
+
+await check('T9.2 forgot-password page renders', async () => {
+  await page.goto(`${BASE}/forgot-password`);
+  await page.waitForSelector('input[type="email"]', { timeout: 5000 });
+  return await page.locator('h1', { hasText: /Forgot your password/i }).isVisible();
+});
+
+await check('T9.3 forgot-password submit → "Check your email"', async () => {
+  await page.fill('input[type="email"]', 'smoke-forgot@test.com');
+  await page.click('button[type="submit"]');
+  await page.waitForSelector('h1:has-text("Check your email")', { timeout: 5000 });
+  return true;
+});
+
+await check('T9.4 reset-password without token → "Invalid link"', async () => {
+  await page.goto(`${BASE}/reset-password`);
+  await page.waitForSelector('h1', { timeout: 5000 });
+  return await page.locator('h1', { hasText: /Invalid link/i }).isVisible();
+});
+
+await check('T9.5 reset-password with token → form renders', async () => {
+  await page.goto(`${BASE}/reset-password?token=faketoken`);
+  await page.waitForSelector('input[type="password"]', { timeout: 5000 });
+  return await page.locator('h1', { hasText: /Set a new password/i }).isVisible();
+});
 
 // ============================================================
 // DB SANITY

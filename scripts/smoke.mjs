@@ -110,9 +110,9 @@ await check('GET /api/charts/revenue', async () => (await api('/api/charts/reven
 // Register (dedup)
 await check('POST /api/auth/register (dedup)', async () => {
   const email = `smoke-${Date.now()}@test.com`;
-  const r1 = await api('/api/auth/register', { method: 'POST', body: { door: 'client', name: 'Smoke', email, interests: ['dogs'] } });
-  const r2 = await api('/api/auth/register', { method: 'POST', body: { door: 'client', name: 'Smoke', email, interests: ['dogs'] } });
-  return r1.status === 201 && r2.status === 200 && r2.data.updated === true;
+  const r1 = await api('/api/auth/register', { method: 'POST', body: { door: 'client', name: 'Smoke', email, password: 'test1234', interests: ['dogs'] } });
+  const r2 = await api('/api/auth/register', { method: 'POST', body: { door: 'client', name: 'Smoke', email, password: 'test1234', interests: ['dogs'] } });
+  return r1.status === 201 && r2.status === 200 && r2.data.alreadyExists === true;
 });
 
 // Auth guard

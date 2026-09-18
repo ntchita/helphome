@@ -1264,7 +1264,9 @@ app.post('/api/auth/register', async (c) => {
   const email = String(body.email || '').trim().toLowerCase();
   const password = String(body.password || '');
   const orgName = body.orgName ? String(body.orgName) : null;
-  const interests = Array.isArray(body.interests) ? body.interests : [];
+    const interests = Array.isArray(body.interests)
+    ? body.interests.map((i: any) => String(i).toLowerCase())
+    : [];
 
   if (!name || !email) return c.json({ error: 'Missing name or email' }, 400);
   if (password.length < 8) return c.json({ error: 'Password must be at least 8 characters' }, 400);
@@ -1296,12 +1298,50 @@ app.post('/api/auth/register', async (c) => {
     });
   }
 
-  // If user already exists → return success without creating a duplicate
+  // If user already exists → if unverified, resend verification; if verified, tell them to log in
   if (existingUser) {
+    if (existingUser.emailVerified) {
+      return c.json({
+        success: true,
+        message: 'Account already exists. Please log in.',
+        alreadyExists: true,
+      }, 200);
+    }
+
+    // Unverified → send a fresh verification email
+    await db.update(schema.verificationTokens)
+      .set({ usedAt: new Date() })
+      .where(and(
+        eq(schema.verificationTokens.userId, existingUser.id),
+        eq(schema.verificationTokens.purpose, 'email_verify')
+      ));
+
+    const rawToken = randomBytes(32).toString('hex');
+    const tokenHash = createHash('sha256').update(rawToken).digest('hex');
+    const expiresAt = new Date(Date.now() + VERIFY_TOKEN_TTL_HOURS * 60 * 60 * 1000);
+
+    await db.insert(schema.verificationTokens).values({
+      userId: existingUser.id,
+      token: tokenHash,
+      purpose: 'email_verify',
+      expiresAt,
+    });
+
+    const origin = c.req.header('origin') || 'http://localhost:5173';
+    const verifyUrl = `${origin}/verify-email?token=${rawToken}`;
+    console.log('📧 [DEV] Verification URL (existing user):', verifyUrl);
+
+    try {
+      await sendVerificationEmail(existingUser.email, existingUser.fullName || 'there', verifyUrl);
+    } catch (e: any) {
+      console.error('❌ Verification email failed:', e.message);
+    }
+
     return c.json({
       success: true,
-      message: 'Account already exists. Check your email or log in.',
+      message: 'Verification email resent. Check your inbox.',
       alreadyExists: true,
+      needsVerification: true,
     }, 200);
   }
 
@@ -1379,6 +1419,49 @@ app.post('/api/auth/register', async (c) => {
     userId: newUser.id,
     needsVerification: true,
   }, 201);
+});
+
+// --- Resend verification email ---
+app.post('/api/auth/resend-verification', async (c) => {
+  const db = await getDb();
+  const body = await c.req.json();
+  const email = String(body.email || '').trim().toLowerCase();
+  if (!email) return c.json({ error: 'Missing email' }, 400);
+
+  const [user] = await db.select().from(schema.users).where(eq(schema.users.email, email)).limit(1);
+  // Always return ok (don't leak whether email exists)
+  if (!user || user.emailVerified) return c.json({ ok: true });
+
+  // Invalidate old unused tokens
+  await db.update(schema.verificationTokens)
+    .set({ usedAt: new Date() })
+    .where(and(
+      eq(schema.verificationTokens.userId, user.id),
+      eq(schema.verificationTokens.purpose, 'email_verify')
+    ));
+
+  const rawToken = randomBytes(32).toString('hex');
+  const tokenHash = createHash('sha256').update(rawToken).digest('hex');
+  const expiresAt = new Date(Date.now() + VERIFY_TOKEN_TTL_HOURS * 60 * 60 * 1000);
+
+  await db.insert(schema.verificationTokens).values({
+    userId: user.id,
+    token: tokenHash,
+    purpose: 'email_verify',
+    expiresAt,
+  });
+
+  const origin = c.req.header('origin') || 'http://localhost:5173';
+  const verifyUrl = `${origin}/verify-email?token=${rawToken}`;
+  console.log('📧 [DEV] Verification URL (resend):', verifyUrl);
+
+  try {
+    await sendVerificationEmail(user.email, user.fullName || 'there', verifyUrl);
+  } catch (e: any) {
+    console.error('❌ Resend failed:', e.message);
+  }
+
+  return c.json({ ok: true });
 });
 
 // --- Email verification ---

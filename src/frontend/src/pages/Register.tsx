@@ -32,6 +32,8 @@ export default function Register() {
   const [picked, setPicked] = useState<string[]>([]);
   const [done, setDone] = useState(false);
   const [error, setError] = useState('');
+  const [resending, setResending] = useState(false);
+  const [resent, setResent] = useState(false);
 
   const [workers, setWorkers] = useState<RegWorker[]>([]);
   const [interests, setInterests] = useState<string[]>([]);
@@ -40,9 +42,6 @@ export default function Register() {
 
   const [matchFilter, setMatchFilter] = useState<MatchFilter>('all');
   const [interestFilter, setInterestFilter] = useState<string>('all');
-  const [selectedWorker, setSelectedWorker] = useState<string>('');
-  const [workerSaved, setWorkerSaved] = useState(false);
-  const [savingWorker, setSavingWorker] = useState(false);
 
   useEffect(() => {
     Promise.all([
@@ -64,8 +63,7 @@ export default function Register() {
     setName(''); setEmail(''); setPassword(''); setConfirm(''); setOrg('');
     setFunding(''); setPlanManagerName('');
     setPicked([]); setError('');
-    setSelectedWorker('');
-    setWorkerSaved(false);
+    setResent(false);
     setMatchFilter('all');
     setInterestFilter('all');
   };
@@ -86,7 +84,7 @@ export default function Register() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          door, name, email,
+          door, name, email, password,
           orgName: org || undefined,
           interests: picked,
           fundingStream: door === 'client' ? funding : undefined,
@@ -94,9 +92,9 @@ export default function Register() {
         }),
       });
       const data = await res.json();
-      if (door === 'client' && data?.lead?.preferredWorkerId) {
-        setSelectedWorker(data.lead.preferredWorkerId);
-        setWorkerSaved(true);
+      if (!res.ok) {
+        setError(data?.error || 'Registration failed. Try again.');
+        return;
       }
       setDone(true);
     } catch {
@@ -106,24 +104,18 @@ export default function Register() {
     }
   };
 
-  const savePreferredWorker = async () => {
-    if (!selectedWorker) return;
-    setSavingWorker(true);
+  const resendVerification = async () => {
+    if (!email) return;
+    setResending(true);
     try {
-      await fetch('/api/auth/register', {
+      await fetch('/api/auth/resend-verification', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          door: 'client', name, email,
-          interests: picked,
-          fundingStream: funding || undefined,
-          planManagerName: funding === 'ndis' ? planManagerName : undefined,
-          preferredWorkerId: selectedWorker,
-        }),
+        body: JSON.stringify({ email }),
       });
-      setWorkerSaved(true);
+      setResent(true);
     } finally {
-      setSavingWorker(false);
+      setResending(false);
     }
   };
 
@@ -133,15 +125,6 @@ export default function Register() {
 
   // ---- Client success screen ----
   if (done && door === 'client') {
-    if (loading) {
-      return (
-        <div className="register-page" style={{ textAlign: 'center', padding: '4rem 0' }}>
-          <h2>Finding your perfect matches...</h2>
-          <p className="lead">Please wait a moment while we search our verified workers.</p>
-        </div>
-      );
-    }
-
     const eligible = ranked.filter((w) => w.pct > 0);
 
     const filtered = eligible.filter((w) => {
@@ -155,128 +138,127 @@ export default function Register() {
 
     return (
       <div className="register-page">
-        <h1>Thanks, {name || 'there'}!</h1>
+        <h1>Almost there, {name || 'friend'}!</h1>
         <p className="lead">
-          Your application is in. We'll email <strong>{email || 'you'}</strong> once your account is verified — usually within 24 hours.
+          We sent a verification link to <strong>{email || 'your email'}</strong>.
+          Click it to activate your account, then log in.
         </p>
         <p className="hub-note" style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
-          In the meantime, pick the workers you'd like to be matched with:
+          Can't find it? Check your Spam or Promotions folder.
         </p>
 
-        <div className="hub-switcher">
-          {([
-            { key: 'all', label: `All (${eligible.length})` },
-            { key: '50', label: `50%+ (${matchCount(50)})` },
-            { key: '75', label: `75%+ (${matchCount(75)})` },
-          ] as const).map((f) => (
-            <button
-              key={f.key}
-              className={`hub-tab ${matchFilter === f.key ? 'active' : ''}`}
-              onClick={() => setMatchFilter(f.key as MatchFilter)}
-            >
-              {f.label}
-            </button>
-          ))}
-        </div>
+        <button
+          className="btn btn-block secondary"
+          style={{ marginBottom: '1rem' }}
+          disabled={resending || resent}
+          onClick={resendVerification}
+        >
+          {resending ? 'Sending…' : resent ? '✓ Verification email sent' : 'Resend verification email'}
+        </button>
 
-        {picked.length > 0 && (
-          <div className="hub-switcher">
-            <button
-              className={`hub-tab ${interestFilter === 'all' ? 'active' : ''}`}
-              onClick={() => setInterestFilter('all')}
-            >
-              All
-            </button>
-            {picked.map((i) => (
-              <button
-                key={i}
-                className={`hub-tab ${interestFilter === i ? 'active' : ''}`}
-                onClick={() => setInterestFilter(i)}
-              >
-                {i}
-              </button>
-            ))}
-          </div>
-        )}
-
-        <section className="worker-grid">
-          {filtered.length === 0 && (
-            <p className="hub-explain" style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '2rem 0' }}>
-              No workers match these filters.
+        {loading ? (
+          <p className="hub-explain" style={{ textAlign: 'center' }}>Loading preview…</p>
+        ) : (
+          <>
+            <p className="hub-note" style={{ textAlign: 'center', marginTop: '2rem' }}>
+              In the meantime, here's a preview of the kind of workers you'll be matched with:
             </p>
-          )}
-          {filtered.map((w) => {
-            const selected = selectedWorker === w.id;
-            return (
-              <article
-                key={w.id}
-                className="card worker-card"
-                style={{ cursor: 'pointer', outline: selected ? '2px solid var(--hh-blue)' : 'none' }}
-                onClick={() => !workerSaved && setSelectedWorker(selected ? '' : w.id)}
-              >
-                <div>
-                  <div className="worker-head">
-                    <h3>{w.name}</h3>
-                    <span className={`match-badge ${w.pct >= 60 ? 'high' : 'low'}`}>{w.pct}% Match</span>
-                  </div>
-                  <p className="worker-role">{w.role}</p>
-                  <p className="worker-bio">{w.bio}</p>
-                  <p className="worker-skills">
-                    <strong>Interests:</strong>{' '}
-                    {w.interests.length > 0 ? w.interests.join(', ') : '—'}
-                  </p>
-                </div>
+
+            <div className="hub-switcher">
+              {([
+                { key: 'all', label: `All (${eligible.length})` },
+                { key: '50', label: `50%+ (${matchCount(50)})` },
+                { key: '75', label: `75%+ (${matchCount(75)})` },
+              ] as const).map((f) => (
                 <button
-                  className={`btn btn-block ${selected ? 'btn-success' : ''}`}
-                  disabled={workerSaved}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setSelectedWorker(selected ? '' : w.id);
-                  }}
+                  key={f.key}
+                  className={`hub-tab ${matchFilter === f.key ? 'active' : ''}`}
+                  onClick={() => setMatchFilter(f.key as MatchFilter)}
                 >
-                  {selected ? '✓ Selected' : 'Select this worker'}
+                  {f.label}
                 </button>
-              </article>
-            );
-          })}
-        </section>
+              ))}
+            </div>
 
-        {selectedWorker && !workerSaved && (
-          <button
-            className="btn btn-block"
-            style={{ marginTop: '1.5rem' }}
-            disabled={savingWorker}
-            onClick={savePreferredWorker}
-          >
-            {savingWorker ? 'Saving…' : `Confirm — match me with ${ranked.find((w) => w.id === selectedWorker)?.name}`}
-          </button>
+            {picked.length > 0 && (
+              <div className="hub-switcher">
+                <button
+                  className={`hub-tab ${interestFilter === 'all' ? 'active' : ''}`}
+                  onClick={() => setInterestFilter('all')}
+                >
+                  All
+                </button>
+                {picked.map((i) => (
+                  <button
+                    key={i}
+                    className={`hub-tab ${interestFilter === i ? 'active' : ''}`}
+                    onClick={() => setInterestFilter(i)}
+                  >
+                    {i}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            <section className="worker-grid">
+              {filtered.length === 0 && (
+                <p className="hub-explain" style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '2rem 0' }}>
+                  No workers match these filters.
+                </p>
+              )}
+              {filtered.map((w) => (
+                <article key={w.id} className="card worker-card">
+                  <div>
+                    <div className="worker-head">
+                      <h3>{w.name}</h3>
+                      <span className={`match-badge ${w.pct >= 60 ? 'high' : 'low'}`}>{w.pct}% Match</span>
+                    </div>
+                    <p className="worker-role">{w.role}</p>
+                    <p className="worker-bio">{w.bio}</p>
+                    <p className="worker-skills">
+                      <strong>Interests:</strong>{' '}
+                      {w.interests.length > 0 ? w.interests.join(', ') : '—'}
+                    </p>
+                  </div>
+                </article>
+              ))}
+            </section>
+          </>
         )}
 
-        {workerSaved && (
-          <div className="flash success" style={{ marginTop: '1.5rem', textAlign: 'center' }}>
-            ✓ Noted — we'll match you with {ranked.find((w) => w.id === selectedWorker)?.name} once your account is verified.
-          </div>
-        )}
-
-        <button className="btn btn-block" style={{ marginTop: '1rem' }} onClick={() => navigate('/')}>
-          Back to home
+        <button className="btn btn-block" style={{ marginTop: '1.5rem' }} onClick={() => navigate('/login')}>
+          Go to login
         </button>
         <p className="hub-explain" style={{ textAlign: 'center', marginTop: '1rem' }}>
-          Preview uses representative worker data. Real matches are shown once your account is created during pilot onboarding.
+          Preview uses representative worker data. Log in after verifying to book.
         </p>
       </div>
     );
   }
 
-  // ---- Worker / Coordinator success ----
+  // ---- Worker success screen ----
   if (done && door === 'worker') {
     return (
       <div className="register-page">
-        <h1>Thanks, {name || 'there'}!</h1>
+        <h1>Almost there, {name || 'friend'}!</h1>
         <p className="lead">
-          Your application is in. We'll email <strong>{email || 'you'}</strong> once verification is complete — usually within 24 hours.
+          We sent a verification link to <strong>{email || 'your email'}</strong>.
+          Click it to activate your account, then log in.
         </p>
         <p className="hub-note" style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
+          Can't find it? Check your Spam or Promotions folder.
+        </p>
+
+        <button
+          className="btn btn-block secondary"
+          style={{ marginBottom: '2rem' }}
+          disabled={resending || resent}
+          onClick={resendVerification}
+        >
+          {resending ? 'Sending…' : resent ? '✓ Verification email sent' : 'Resend verification email'}
+        </button>
+
+        <p className="hub-note" style={{ textAlign: 'center', marginBottom: '1rem' }}>
           Here's our promise to you — the deal, before anything else:
         </p>
         <ul className="promise-list">
@@ -284,17 +266,20 @@ export default function Register() {
           <li><strong>We cap you at 85%</strong> — overbooked workers burn out; we won't let that happen to you.</li>
           <li><strong>Decline without penalty</strong> — never affects your rating. No penalty, ever.</li>
         </ul>
-        <button className="btn btn-block" onClick={() => navigate('/')}>Back to home</button>
+
+        <button className="btn btn-block" onClick={() => navigate('/login')}>Go to login</button>
       </div>
     );
   }
 
+  // ---- Coordinator success screen ----
   if (done && door === 'coordinator') {
     return (
       <div className="register-page">
         <h1>Thank you, {name || 'there'}!</h1>
         <p className="lead">
-          We've noted <strong>{org || 'your organisation'}</strong>'s interest. Pilot coordinators are invited personally — we'll be in touch shortly via email.
+          We've noted <strong>{org || 'your organisation'}</strong>'s interest.
+          Pilot coordinators are invited personally — we'll be in touch shortly via email.
         </p>
         <p className="hub-note" style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
           Bring your clients — we supply verified, wellness-checked workers. You keep the relationship.
@@ -362,6 +347,7 @@ export default function Register() {
     );
   }
 
+  // ---- Worker form ----
   if (door === 'worker') {
     return (
       <div className="register-page">
@@ -391,6 +377,7 @@ export default function Register() {
     );
   }
 
+  // ---- Coordinator form ----
   if (door === 'coordinator') {
     return (
       <div className="register-page">

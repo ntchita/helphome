@@ -42,6 +42,7 @@ function App() {
     localStorage.removeItem('helphome_role');
     localStorage.removeItem('helphome_user_id');
     localStorage.removeItem('helphome_worker_contexts');
+    localStorage.removeItem('helphome_token');
     setRole(null);
   };
 

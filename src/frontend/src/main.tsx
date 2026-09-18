@@ -6,9 +6,9 @@ import './index.css'
 
 // ---------------------------------------------------------------------------
 // Global fetch wrapper
-//  - attaches x-user-id to every /api/* request (except login/demo-accounts)
+//  - attaches Authorization: Bearer <token> to /api/* requests
+//  - keeps x-user-id for backwards compatibility
 //  - on session-expiry response, clears localStorage and redirects to /login
-//    so no page ever crashes on a stale session
 // ---------------------------------------------------------------------------
 ;(function installFetchWrapper() {
   const w = window as any
@@ -27,20 +27,18 @@ import './index.css'
     const isApiCall = url.startsWith('/api/')
     const isLoginCall = LOGIN_ENDPOINTS.some((p) => url.startsWith(p))
 
-    // 1) auto-attach x-user-id
     let finalInit: RequestInit = init || {}
     if (isApiCall && !isLoginCall) {
+      const headers = new Headers(finalInit.headers || {})
+      const token = localStorage.getItem('helphome_token')
       const userId = localStorage.getItem('helphome_user_id')
-      if (userId) {
-        const headers = new Headers(finalInit.headers || {})
-        if (!headers.has('x-user-id')) headers.set('x-user-id', userId)
-        finalInit = { ...finalInit, headers }
-      }
+      if (token && !headers.has('Authorization')) headers.set('Authorization', `Bearer ${token}`)
+      if (userId && !headers.has('x-user-id')) headers.set('x-user-id', userId)
+      finalInit = { ...finalInit, headers }
     }
 
     const response = await originalFetch(input, finalInit)
 
-    // 2) session-expiry → clean return to /login
     if (isApiCall && !isLoginCall && (response.status === 401 || response.status === 404)) {
       const clone = response.clone()
       const body = await clone.json().catch(() => null)
@@ -53,6 +51,7 @@ import './index.css'
         localStorage.removeItem('helphome_role')
         localStorage.removeItem('helphome_user_id')
         localStorage.removeItem('helphome_worker_contexts')
+        localStorage.removeItem('helphome_token')
         if (window.location.pathname !== '/login') {
           window.location.replace('/login')
         }

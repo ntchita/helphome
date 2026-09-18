@@ -2,6 +2,7 @@ import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { eq, and, inArray, desc } from 'drizzle-orm';
 import bcrypt from 'bcryptjs';
+import { signToken, verifyToken, extractBearer } from './auth.ts';
 import { getDb, schema } from '../db/connection.ts';
 import { calculateWellnessMatch, rankWorkers } from './utils/matcher.ts';
 
@@ -42,9 +43,31 @@ app.use('/*', cors({
   credentials: true,
 }));
 
+// =====================================================================
+// Auth middleware — accepts Bearer JWT (new) OR x-user-id header (legacy)
+// =====================================================================
+app.use('/api/*', async (c, next) => {
+  const auth = c.req.header('Authorization');
+  const token = extractBearer(auth);
+  if (token) {
+    const payload = await verifyToken(token);
+    if (payload?.sub) {
+      c.set('authUserId', payload.sub);
+      c.set('authRole', payload.role);
+    }
+  }
+  await next();
+});
+
+function getUserId(c: any): string | null {
+  const fromJwt = c.get('authUserId');
+  if (fromJwt) return fromJwt;
+  return c.req.header('x-user-id') || null;
+}
+
 // Reject malformed x-user-id early so PGlite never sees a bad UUID
 app.use('/api/*', async (c, next) => {
-  const userId = c.req.header('x-user-id');
+  const userId = getUserId(c);
   if (userId && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(userId)) {
     return c.json({ error: 'User not found' }, 404);
   }
@@ -68,7 +91,7 @@ app.get('/', (c) => c.json({ message: 'CareWork API Active', version: '2.0.0' })
 // --- Workers & Matching ---
 app.get('/api/workers', async (c) => {
   const db = await getDb();
-  const userId = c.req.header('x-user-id');
+  const userId = getUserId(c);
 
   let clientInterests: string[] = [];
   if (userId) {
@@ -132,7 +155,7 @@ app.get('/api/interests', async (c) => {
 });
 
 app.get('/api/client-profile', async (c) => {
-  const userId = c.req.header('x-user-id');
+  const userId = getUserId(c);
   if (!userId) return c.json({ error: 'Unauthenticated' }, 401);
 
   const db = await getDb();
@@ -151,7 +174,7 @@ app.get('/api/client-profile', async (c) => {
 
 // --- Bookings ---
 app.get('/api/bookings', async (c) => {
-  const userId = c.req.header('x-user-id');
+  const userId = getUserId(c);
   if (!userId) return c.json({ error: 'Unauthenticated' }, 401);
 
   const db = await getDb();
@@ -185,7 +208,7 @@ app.get('/api/bookings', async (c) => {
 });
 
 app.post('/api/bookings', async (c) => {
-  const userId = c.req.header('x-user-id');
+  const userId = getUserId(c);
   if (!userId) return c.json({ error: 'Unauthenticated' }, 401);
 
   const db = await getDb();
@@ -232,7 +255,7 @@ app.post('/api/bookings', async (c) => {
 
 // --- Client Requests (DB-backed, tenant-scoped) ---
 app.get('/api/requests', async (c) => {
-  const userId = c.req.header('x-user-id');
+  const userId = getUserId(c);
   if (!userId) return c.json({ error: 'Unauthenticated' }, 401);
 
   const db = await getDb();
@@ -281,7 +304,7 @@ app.get('/api/requests', async (c) => {
 
 // --- Worker Hub (DB-backed, returns both contexts) ---
 app.get('/api/worker-hub', async (c) => {
-  const userId = c.req.header('x-user-id');
+  const userId = getUserId(c);
   if (!userId) return c.json({ error: 'Unauthenticated' }, 401);
 
   const db = await getDb();
@@ -388,7 +411,7 @@ app.get('/api/worker-hub', async (c) => {
 
 // --- Check-ins (DB-backed, worker only) ---
 app.get('/api/checkins', async (c) => {
-  const userId = c.req.header('x-user-id');
+  const userId = getUserId(c);
   if (!userId) return c.json({ error: 'Unauthenticated' }, 401);
 
   const db = await getDb();
@@ -416,7 +439,7 @@ app.get('/api/checkins', async (c) => {
 });
 
 app.post('/api/checkins', async (c) => {
-  const userId = c.req.header('x-user-id');
+  const userId = getUserId(c);
   if (!userId) return c.json({ error: 'Unauthenticated' }, 401);
 
   const db = await getDb();
@@ -439,7 +462,7 @@ app.post('/api/checkins', async (c) => {
 });
 
 app.post('/api/worker-hub/decision', async (c) => {
-  const userId = c.req.header('x-user-id');
+  const userId = getUserId(c);
   if (!userId) return c.json({ error: 'Unauthenticated' }, 401);
 
   const db = await getDb();
@@ -471,7 +494,7 @@ app.post('/api/worker-hub/decision', async (c) => {
 
 // --- Coordinator Hub Roster (DB-backed, tenant-scoped, batched) ---
 app.get('/api/roster', async (c) => {
-  const userId = c.req.header('x-user-id');
+  const userId = getUserId(c);
   if (!userId) return c.json({ error: 'Unauthenticated' }, 401);
   if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(userId)) {
     return c.json({ error: 'User not found' }, 404);
@@ -563,7 +586,7 @@ app.get('/api/roster', async (c) => {
 
 // Coordinator schedules a welfare chat with a worker
 app.post('/api/roster/:id/welfare-chat', async (c) => {
-  const userId = c.req.header('x-user-id');
+  const userId = getUserId(c);
   if (!userId) return c.json({ error: 'Unauthenticated' }, 401);
 
   const db = await getDb();
@@ -595,7 +618,7 @@ app.post('/api/roster/:id/welfare-chat', async (c) => {
 
 // Worker flags need for support — creates a welfare chat request for their coordinator
 app.post('/api/worker-hub/flag-support', async (c) => {
-  const userId = c.req.header('x-user-id');
+  const userId = getUserId(c);
   if (!userId) return c.json({ error: 'Unauthenticated' }, 401);
 
   const db = await getDb();
@@ -627,7 +650,7 @@ app.post('/api/worker-hub/flag-support', async (c) => {
 
 // --- Admin Dashboard ---
 app.get('/api/admin/kpis', async (c) => {
-  const userId = c.req.header('x-user-id');
+  const userId = getUserId(c);
   if (!userId) return c.json({ error: 'Unauthenticated' }, 401);
 
   const db = await getDb();
@@ -668,7 +691,7 @@ app.get('/api/admin/kpis', async (c) => {
 });
 
 app.get('/api/admin/alerts', async (c) => {
-  const userId = c.req.header('x-user-id');
+  const userId = getUserId(c);
   if (!userId) return c.json({ error: 'Unauthenticated' }, 401);
 
   const db = await getDb();
@@ -747,7 +770,7 @@ app.get('/api/admin/alerts', async (c) => {
 app.post('/api/admin/alerts/:id/dismiss', (c) => c.json({ ok: true }));
 
 app.get('/api/admin/activity', async (c) => {
-  const userId = c.req.header('x-user-id');
+  const userId = getUserId(c);
   if (!userId) return c.json({ error: 'Unauthenticated' }, 401);
 
   const db = await getDb();
@@ -826,7 +849,7 @@ app.get('/api/admin/activity', async (c) => {
 });
 
 app.get('/api/admin/people', async (c) => {
-  const userId = c.req.header('x-user-id');
+  const userId = getUserId(c);
   if (!userId) return c.json({ error: 'Unauthenticated' }, 401);
 
   const db = await getDb();
@@ -888,7 +911,7 @@ app.get('/api/admin/people', async (c) => {
 });
 
 app.get('/api/admin/health', async (c) => {
-  const userId = c.req.header('x-user-id');
+  const userId = getUserId(c);
   if (!userId) return c.json({ error: 'Unauthenticated' }, 401);
 
   const db = await getDb();
@@ -947,7 +970,7 @@ app.get('/api/admin/health', async (c) => {
 
 // --- Charts ---
 app.get('/api/charts/trend', async (c) => {
-  const userId = c.req.header('x-user-id');
+  const userId = getUserId(c);
   if (!userId) return c.json({ error: 'Unauthenticated' }, 401);
 
   const db = await getDb();
@@ -984,7 +1007,7 @@ app.get('/api/charts/trend', async (c) => {
 });
 
 app.get('/api/charts/status', async (c) => {
-  const userId = c.req.header('x-user-id');
+  const userId = getUserId(c);
   if (!userId) return c.json({ error: 'Unauthenticated' }, 401);
 
   const db = await getDb();
@@ -1013,7 +1036,7 @@ app.get('/api/charts/revenue', (c) => c.json(revenue));
 
 // --- Verification Queue (DB-backed) ---
 app.get('/api/verification', async (c) => {
-  const userId = c.req.header('x-user-id');
+  const userId = getUserId(c);
   if (!userId) return c.json({ error: 'Unauthenticated' }, 401);
 
   const db = await getDb();
@@ -1057,7 +1080,7 @@ app.get('/api/verification', async (c) => {
 });
 
 app.post('/api/verification/:id/toggle', async (c) => {
-  const userId = c.req.header('x-user-id');
+  const userId = getUserId(c);
   if (!userId) return c.json({ error: 'Unauthenticated' }, 401);
 
   const db = await getDb();
@@ -1087,7 +1110,7 @@ app.post('/api/verification/:id/toggle', async (c) => {
 });
 
 app.get('/api/verification/activity', async (c) => {
-  const userId = c.req.header('x-user-id');
+  const userId = getUserId(c);
   if (!userId) return c.json({ error: 'Unauthenticated' }, 401);
 
   const db = await getDb();
@@ -1115,7 +1138,7 @@ app.get('/api/verification/activity', async (c) => {
 });
 
 app.get('/api/verification/stats', async (c) => {
-  const userId = c.req.header('x-user-id');
+  const userId = getUserId(c);
   if (!userId) return c.json({ error: 'Unauthenticated' }, 401);
 
   const db = await getDb();
@@ -1179,7 +1202,8 @@ app.post('/api/login', async (c) => {
     workerContexts = [...new Set(profiles.map((p) => p.workerType))];
   }
 
-  return c.json({ ok: true, userId: user.id, role: user.role, workerContexts });
+  const token = await signToken({ sub: user.id, role: user.role, tenantId: user.tenantId ?? null });
+  return c.json({ ok: true, userId: user.id, role: user.role, workerContexts, token });
 });
 
 app.post('/api/auth/register', async (c) => {
@@ -1247,7 +1271,7 @@ app.post('/api/auth/register', async (c) => {
 });
 
 app.post('/api/wellness', async (c) => {
-  const userId = c.req.header('x-user-id');
+  const userId = getUserId(c);
   if (!userId) return c.json({ error: 'Unauthenticated' }, 401);
 
   const db = await getDb();

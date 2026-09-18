@@ -11,7 +11,7 @@ export async function seed(db: PgliteDatabase<typeof s>) {
   const demoHash = await bcrypt.hash('test', 10);
 
   await db.insert(s.users).values({
-    email: 'admin@carework.au', passwordHash: demoHash, role: 'admin', fullName: 'Nikolai Tchitachvili', mfaEnabled: true
+    email: 'admin@carework.au', passwordHash: demoHash, role: 'admin', fullName: 'Nikolai Tchitachvili', mfaEnabled: true, emailVerified: true
   });
 
   const [helphome] = await db.insert(s.tenants).values({
@@ -19,7 +19,7 @@ export async function seed(db: PgliteDatabase<typeof s>) {
   }).returning();
 
   await db.insert(s.users).values({
-    tenantId: helphome.id, email: 'tonia@helphome.au', passwordHash: demoHash, role: 'coordinator', fullName: 'Tonia Fridlis', mfaEnabled: true
+    tenantId: helphome.id, email: 'tonia@helphome.au', passwordHash: demoHash, role: 'coordinator', fullName: 'Tonia Fridlis', mfaEnabled: true, emailVerified: true
   });
 
   // --- CLIENTS (10) ---
@@ -30,7 +30,7 @@ export async function seed(db: PgliteDatabase<typeof s>) {
   const clientMap: Record<string, { userId: string; profileId: string }> = {};
   for (const name of clientData) {
     const email = `${name.toLowerCase().replace(' ', '.')}@client.com`;
-    const [user] = await db.insert(s.users).values({ email, passwordHash: demoHash, role: 'client', fullName: name }).returning();
+    const [user] = await db.insert(s.users).values({ email, passwordHash: demoHash, role: 'client', fullName: name, emailVerified: true }).returning();
     const seedInterests: Record<string, string[]> = {
       'Jane Doe': ['dogs', 'music', 'outdoors'],
       'Mark Taylor': ['fitness', 'outdoors'],
@@ -66,7 +66,7 @@ export async function seed(db: PgliteDatabase<typeof s>) {
   };
   for (const name of indData) {
     const email = `${name.toLowerCase().replace(' ', '.')}@worker.com`;
-    const [user] = await db.insert(s.users).values({ email, passwordHash: demoHash, role: 'worker', fullName: name }).returning();
+    const [user] = await db.insert(s.users).values({ email, passwordHash: demoHash, role: 'worker', fullName: name, emailVerified: true }).returning();
     const [profile] = await db.insert(s.workerProfiles).values({
       userId: user.id, tenantId: null, workerType: 'independent', abn: '11111111111',
       bio: 'Independent support worker.', skills: ['Personal Care'],
@@ -85,7 +85,7 @@ export async function seed(db: PgliteDatabase<typeof s>) {
   const empMap: Record<string, { userId: string; profileId: string }> = {};
   for (const name of empData) {
     const email = `${name.toLowerCase().replace(' ', '.')}@helphome.au`;
-    const [user] = await db.insert(s.users).values({ tenantId: helphome.id, email, passwordHash: demoHash, role: 'worker', fullName: name }).returning();
+    const [user] = await db.insert(s.users).values({ tenantId: helphome.id, email, passwordHash: demoHash, role: 'worker', fullName: name, emailVerified: true }).returning();
     const [profile] = await db.insert(s.workerProfiles).values({
       userId: user.id, tenantId: helphome.id, workerType: 'coordinator', abn: '22222222222',
       bio: 'HelpHome roster worker.', skills: ['Community Access'], interests: ['fitness'],
@@ -105,7 +105,7 @@ export async function seed(db: PgliteDatabase<typeof s>) {
   ];
   const contMap: Record<string, { userId: string; coord: string; ind?: string }> = {};
   for (const c of contData) {
-    const [user] = await db.insert(s.users).values({ tenantId: helphome.id, email: c.email, passwordHash: demoHash, role: 'worker', fullName: c.name }).returning();
+    const [user] = await db.insert(s.users).values({ tenantId: helphome.id, email: c.email, passwordHash: demoHash, role: 'worker', fullName: c.name, emailVerified: true }).returning();
 
     const [coordProfile] = await db.insert(s.workerProfiles).values({
       userId: user.id, tenantId: helphome.id, workerType: 'coordinator', abn: '33333333333',

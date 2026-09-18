@@ -9,6 +9,7 @@ import AdminDashboard from './pages/AdminDashboard';
 import AdminHome from './pages/AdminHome';
 import ClientRequests from './pages/ClientRequests';
 import Login from './pages/Login';
+import VerifyEmail from './pages/VerifyEmail';
 import Register from './pages/Register';
 
 type Role = 'client' | 'worker' | 'coordinator' | 'admin' | null;
@@ -92,6 +93,7 @@ function App() {
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/login" element={<Login onLogin={() => setRole(localStorage.getItem('helphome_role') as Role)} />} />
+		  <Route path="/verify-email" element={<VerifyEmail />} />
           <Route path="/register" element={<Register />} />
           <Route path="/dashboard" element={role === 'client' ? <Dashboard /> : bounce} />
           <Route path="/wellness" element={role === 'client' ? <WellnessCheck /> : bounce} />

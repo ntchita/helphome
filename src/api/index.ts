@@ -3,6 +3,8 @@ import { cors } from 'hono/cors';
 import { eq, and, inArray, desc, gte } from 'drizzle-orm';
 import bcrypt from 'bcryptjs';
 import { signToken, verifyToken, extractBearer } from './auth.ts';
+import { sendVerificationEmail } from './email.ts';
+import { randomBytes, createHash } from 'crypto';
 import { getDb, schema } from '../db/connection.ts';
 import { calculateWellnessMatch, rankWorkers } from './utils/matcher.ts';
 
@@ -1222,6 +1224,17 @@ app.post('/api/login', async (c) => {
     return c.json({ ok: false }, 401);
   }
 
+  // Email verification gate — flip to false to allow unverified access
+  const REQUIRE_EMAIL_VERIFICATION = true;
+  if (REQUIRE_EMAIL_VERIFICATION && !user.emailVerified && user.role !== 'admin') {
+    await recordAttempt(true);
+    return c.json({
+      ok: false,
+      error: 'Please verify your email before logging in. Check your inbox.',
+      needsVerification: true,
+    }, 403);
+  }
+
   await recordAttempt(true);
   await db.update(schema.users).set({ lastLogin: new Date() }).where(eq(schema.users.id, user.id));
 
@@ -1237,6 +1250,8 @@ app.post('/api/login', async (c) => {
   return c.json({ ok: true, userId: user.id, role: user.role, workerContexts, token });
 });
 
+const VERIFY_TOKEN_TTL_HOURS = 24;
+
 app.post('/api/auth/register', async (c) => {
   const db = await getDb();
   const body = await c.req.json();
@@ -1247,10 +1262,18 @@ app.post('/api/auth/register', async (c) => {
 
   const name = String(body.name || '').trim();
   const email = String(body.email || '').trim().toLowerCase();
-  if (!name || !email) return c.json({ error: 'Missing name or email' }, 400);
+  const password = String(body.password || '');
+  const orgName = body.orgName ? String(body.orgName) : null;
+  const interests = Array.isArray(body.interests) ? body.interests : [];
 
-  // Same email + same door → update existing lead (no duplicate)
-  const existing = await db
+  if (!name || !email) return c.json({ error: 'Missing name or email' }, 400);
+  if (password.length < 8) return c.json({ error: 'Password must be at least 8 characters' }, 400);
+
+  // Existing user?
+  const [existingUser] = await db.select().from(schema.users).where(eq(schema.users.email, email)).limit(1);
+
+  // Also record as a lead (keep current behaviour for coordinator waitlist etc.)
+  const [existingLead] = await db
     .select()
     .from(schema.signupLeads)
     .where(and(eq(schema.signupLeads.email, email), eq(schema.signupLeads.door, door)))
@@ -1262,43 +1285,136 @@ app.post('/api/auth/register', async (c) => {
   const planManagerName = body.planManagerName ? String(body.planManagerName) : null;
   const preferredWorkerId = body.preferredWorkerId ? String(body.preferredWorkerId) : null;
 
-  if (existing.length > 0) {
-    await db
-      .update(schema.signupLeads)
-      .set({
-        name,
-        orgName: body.orgName ? String(body.orgName) : existing[0].orgName,
-        interests: Array.isArray(body.interests) ? body.interests : existing[0].interests,
-        fundingStream: fundingStream ?? existing[0].fundingStream,
-        planManagerName: planManagerName ?? existing[0].planManagerName,
-        preferredWorkerId: preferredWorkerId ?? existing[0].preferredWorkerId,
-      })
-      .where(eq(schema.signupLeads.id, existing[0].id));
-      return c.json({
+  if (!existingLead) {
+    await db.insert(schema.signupLeads).values({
+      door, name, email,
+      orgName,
+      interests,
+      fundingStream,
+      planManagerName,
+      preferredWorkerId,
+    });
+  }
+
+  // If user already exists → return success without creating a duplicate
+  if (existingUser) {
+    return c.json({
       success: true,
-      message: 'Application updated (already on file)',
-      updated: true,
-      lead: {
-        id: existing[0].id,
-        preferredWorkerId: preferredWorkerId ?? existing[0].preferredWorkerId,
-        fundingStream: fundingStream ?? existing[0].fundingStream,
-        planManagerName: planManagerName ?? existing[0].planManagerName,
-      },
+      message: 'Account already exists. Check your email or log in.',
+      alreadyExists: true,
     }, 200);
   }
 
-  await db.insert(schema.signupLeads).values({
-    door,
-    name,
+  // Hash the password
+  const passwordHash = await bcrypt.hash(password, 10);
+
+  // Create user (unverified). Coordinator role is invite-only — treat door=coordinator as a client-account shell for now.
+  const role = door === 'worker' ? 'worker' : 'client';
+  const [newUser] = await db.insert(schema.users).values({
     email,
-    orgName: body.orgName ? String(body.orgName) : null,
-    interests: Array.isArray(body.interests) ? body.interests : null,
-    fundingStream,
-    planManagerName,
-    preferredWorkerId,
+    passwordHash,
+    role,
+    fullName: name,
+    emailVerified: false,
+  }).returning();
+
+  // Client profile
+  if (role === 'client') {
+    await db.insert(schema.clientProfiles).values({
+      userId: newUser.id,
+      tenantId: null,
+      fullName: name,
+      dob: '1990-01-01',
+      address: '',
+      phone: '',
+      fundingStream,
+      planManagerName,
+      interests,
+    });
+  }
+
+  // Worker profile (independent placeholder — coordinator must approve later)
+  if (role === 'worker') {
+    await db.insert(schema.workerProfiles).values({
+      userId: newUser.id,
+      tenantId: null,
+      workerType: 'independent',
+      bio: '',
+      skills: [],
+      interests,
+      hourlyRate: 0,
+      consentToDisplay: false,
+      verificationStatus: 'pending',
+    });
+  }
+
+  // Create verification token
+  const rawToken = randomBytes(32).toString('hex');
+  const tokenHash = createHash('sha256').update(rawToken).digest('hex');
+  const expiresAt = new Date(Date.now() + VERIFY_TOKEN_TTL_HOURS * 60 * 60 * 1000);
+
+  await db.insert(schema.verificationTokens).values({
+    userId: newUser.id,
+    token: tokenHash,
+    purpose: 'email_verify',
+    expiresAt,
   });
 
-  return c.json({ success: true, message: 'Registered (pilot waitlist)' }, 201);
+  // Build verify URL and send email
+  const origin = c.req.header('origin') || 'http://localhost:5173';
+  const verifyUrl = `${origin}/verify-email?token=${rawToken}`;
+
+  console.log('📧 [DEV] Verification URL:', verifyUrl);
+
+  try {
+    await sendVerificationEmail(email, name, verifyUrl);
+  } catch (e: any) {
+    console.error('❌ Verification email failed:', e.message);
+    // Don't fail the registration — user can request resend later
+  }
+
+  return c.json({
+    success: true,
+    message: 'Account created. Check your email to verify.',
+    userId: newUser.id,
+    needsVerification: true,
+  }, 201);
+});
+
+// --- Email verification ---
+app.get('/api/verify-email/:token', async (c) => {
+  const db = await getDb();
+  const raw = c.req.param('token');
+  if (!raw) return c.json({ ok: false, error: 'Missing token' }, 400);
+
+  const tokenHash = createHash('sha256').update(raw).digest('hex');
+  const [row] = await db
+    .select()
+    .from(schema.verificationTokens)
+    .where(eq(schema.verificationTokens.token, tokenHash))
+    .limit(1);
+
+  if (!row) return c.json({ ok: false, error: 'Invalid token' }, 404);
+  if (new Date(row.expiresAt).getTime() < Date.now()) {
+    return c.json({ ok: false, error: 'Token expired' }, 410);
+  }
+
+  // Idempotent: if already used, confirm the user is verified and return ok
+  if (row.usedAt) {
+    const [u] = await db.select().from(schema.users).where(eq(schema.users.id, row.userId)).limit(1);
+    if (u?.emailVerified) return c.json({ ok: true, message: 'Email already verified' });
+    return c.json({ ok: false, error: 'Token already used' }, 410);
+  }
+
+  await db.update(schema.users)
+    .set({ emailVerified: true })
+    .where(eq(schema.users.id, row.userId));
+
+  await db.update(schema.verificationTokens)
+    .set({ usedAt: new Date() })
+    .where(eq(schema.verificationTokens.id, row.id));
+
+  return c.json({ ok: true, message: 'Email verified' });
 });
 
 app.post('/api/wellness', async (c) => {

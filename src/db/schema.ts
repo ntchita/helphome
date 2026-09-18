@@ -41,6 +41,7 @@ export const users = pgTable('users', {
   role: roleEnum('role').notNull(),
   fullName: text('full_name'),
   mfaEnabled: boolean('mfa_enabled').notNull().default(false),
+  emailVerified: boolean('email_verified').notNull().default(false),
   isActive: boolean('is_active').notNull().default(true),
   createdAt: timestamp('created_at', tz).notNull().defaultNow(),
   lastLogin: timestamp('last_login', tz),
@@ -211,4 +212,14 @@ export const loginAttempts = pgTable('login_attempts', {
   ip: text('ip'),
   success: boolean('success').notNull(),
   attemptedAt: timestamp('attempted_at', tz).notNull().defaultNow(),
+});
+
+export const verificationTokens = pgTable('verification_tokens', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  token: text('token').notNull().unique(),
+  purpose: text('purpose').notNull().default('email_verify'),
+  expiresAt: timestamp('expires_at', tz).notNull(),
+  usedAt: timestamp('used_at', tz),
+  createdAt: timestamp('created_at', tz).notNull().defaultNow(),
 });

@@ -204,3 +204,11 @@ export const visualcareSyncLog = pgTable('visualcare_sync_log', {
   errorMessage: text('error_message'),
   processedAt: timestamp('processed_at', tz).notNull().defaultNow(),
 });
+
+export const loginAttempts = pgTable('login_attempts', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  email: text('email').notNull(),
+  ip: text('ip'),
+  success: boolean('success').notNull(),
+  attemptedAt: timestamp('attempted_at', tz).notNull().defaultNow(),
+});

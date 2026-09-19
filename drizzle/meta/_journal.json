@@ -57,6 +57,13 @@
       "when": 1789776773125,
       "tag": "0007_famous_loa",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1789813323035,
+      "tag": "0008_dapper_baron_strucker",
+      "breakpoints": true
     }
   ]
 }

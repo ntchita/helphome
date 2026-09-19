@@ -125,6 +125,7 @@ export const shifts = pgTable('shifts', {
   matchedOn: jsonb('matched_on').$type<string[]>(),
   locationAddress: text('location_address'),
   createdAt: timestamp('created_at', tz).notNull().defaultNow(),
+  completedAt: timestamp('completed_at', tz),
 });
 
 export const progressNotes = pgTable('progress_notes', {
@@ -136,6 +137,8 @@ export const progressNotes = pgTable('progress_notes', {
   approvalStatus: approvalEnum('approval_status').notNull().default('pending'),
   approvedBy: uuid('approved_by').references(() => users.id),
   approvedAt: timestamp('approved_at', tz),
+  rejectedReason: text('rejected_reason'),
+  rejectedBy: uuid('rejected_by').references(() => users.id),
   submittedAt: timestamp('submitted_at', tz).notNull().defaultNow(),
 });
 

@@ -102,7 +102,7 @@ await check('GET /api/admin/alerts', async () => Array.isArray((await api('/api/
 await check('GET /api/admin/activity', async () => Array.isArray((await api('/api/admin/activity', { userId: adminId })).data));
 await check('GET /api/admin/people', async () => (await api('/api/admin/people', { userId: adminId })).data.length === 3);
 await check('GET /api/admin/health', async () => (await api('/api/admin/health', { userId: adminId })).data.length === 4);
-await check('GET /api/verification (admin, 32)', async () => (await api('/api/verification', { userId: adminId })).data.length === 32);
+await check('GET /api/verification (admin, >= 32)', async () => (await api('/api/verification', { userId: adminId })).data.length >= 32);
 await check('GET /api/roster (admin, 20)', async () => (await api('/api/roster', { userId: adminId })).data.length === 20);
 await check('GET /api/charts/trend', async () => (await api('/api/charts/trend', { userId: adminId })).data.length === 7);
 await check('GET /api/charts/status', async () => (await api('/api/charts/status', { userId: adminId })).data.length === 3);

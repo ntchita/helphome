@@ -1,0 +1,2 @@
+ALTER TABLE "worker_profiles" ADD COLUMN IF NOT EXISTS "onboarding_completed" boolean DEFAULT false NOT NULL;--> statement-breakpoint
+ALTER TABLE "worker_profiles" ADD COLUMN IF NOT EXISTS "consent_to_display" boolean DEFAULT false NOT NULL;

@@ -78,8 +78,9 @@ export const workerProfiles = pgTable('worker_profiles', {
   capacityBooked: integer('capacity_booked').notNull().default(0),
   capacityTotal: integer('capacity_total').notNull().default(30),
   availability: jsonb('availability'),
-  consentToDisplay: boolean('consent_to_display').notNull().default(false),
+  onboardingCompleted: boolean('onboarding_completed').notNull().default(false),
   verificationStatus: verificationEnum('verification_status').notNull().default('pending'),
+  consentToDisplay: boolean('consent_to_display').notNull().default(false),
   ratingAvg: real('rating_avg').notNull().default(0),
   totalBookings: integer('total_bookings').notNull().default(0),
 });

@@ -672,6 +672,41 @@ app.post('/api/worker-hub/flag-support', async (c) => {
   return c.json({ ok: true });
 });
 
+// --- Worker onboarding (post-verification profile completion) ---
+app.post('/api/worker-onboarding', async (c) => {
+  const userId = getUserId(c);
+  if (!userId) return c.json({ error: 'Unauthenticated' }, 401);
+
+  const db = await getDb();
+  const [user] = await db.select().from(schema.users).where(eq(schema.users.id, userId)).limit(1);
+  if (!user || user.role !== 'worker') return c.json({ error: 'Forbidden' }, 403);
+
+  const body = await c.req.json();
+  const bio = String(body.bio || '').trim();
+  const hourlyRate = Number(body.hourlyRate);
+  const skills = Array.isArray(body.skills) ? body.skills.map((s: any) => String(s).trim()).filter(Boolean) : [];
+  const interests = Array.isArray(body.interests) ? body.interests.map((i: any) => String(i).toLowerCase().trim()).filter(Boolean) : [];
+  const consentToDisplay = Boolean(body.consentToDisplay);
+
+  if (bio.length < 20) return c.json({ error: 'Bio must be at least 20 characters' }, 400);
+  if (!hourlyRate || hourlyRate < 20 || hourlyRate > 200) return c.json({ error: 'Hourly rate must be between $20 and $200' }, 400);
+  if (skills.length === 0) return c.json({ error: 'Pick at least one skill' }, 400);
+  if (interests.length === 0) return c.json({ error: 'Pick at least one interest' }, 400);
+
+  await db.update(schema.workerProfiles)
+    .set({
+      bio,
+      hourlyRate,
+      skills,
+      interests,
+      consentToDisplay,
+      onboardingCompleted: true,
+    })
+    .where(eq(schema.workerProfiles.userId, userId));
+
+  return c.json({ ok: true, message: 'Onboarding complete' });
+});
+
 // --- Admin Dashboard ---
 app.get('/api/admin/kpis', async (c) => {
   const userId = getUserId(c);
@@ -1261,15 +1296,21 @@ app.post('/api/login', async (c) => {
   await db.update(schema.users).set({ lastLogin: new Date() }).where(eq(schema.users.id, user.id));
 
   let workerContexts: string[] = [];
+  let needsOnboarding = false;
   if (user.role === 'worker') {
-    const profiles = await db.select({ workerType: schema.workerProfiles.workerType })
+    const profiles = await db.select({
+      workerType: schema.workerProfiles.workerType,
+      onboardingCompleted: schema.workerProfiles.onboardingCompleted,
+    })
       .from(schema.workerProfiles)
       .where(eq(schema.workerProfiles.userId, user.id));
     workerContexts = [...new Set(profiles.map((p) => p.workerType))];
+    // If any worker profile exists with onboarding incomplete, flag for redirect
+    needsOnboarding = profiles.length > 0 && profiles.every((p) => !p.onboardingCompleted);
   }
 
   const token = await signToken({ sub: user.id, role: user.role, tenantId: user.tenantId ?? null });
-  return c.json({ ok: true, userId: user.id, role: user.role, workerContexts, token });
+  return c.json({ ok: true, userId: user.id, role: user.role, workerContexts, token, needsOnboarding });
 });
 
 const VERIFY_TOKEN_TTL_HOURS = 24;
@@ -1662,6 +1703,14 @@ app.post('/api/_test/cleanup', async (c) => {
   }
 
   return c.json({ ok: true, removed: ids.length });
+});
+
+// DEV-ONLY: mark all seeded demo workers as onboarding-complete so smoke tests can reach /my-hub.
+app.post('/api/_test/complete-onboarding', async (c) => {
+  const db = await getDb();
+  await db.update(schema.workerProfiles)
+    .set({ onboardingCompleted: true, consentToDisplay: true });
+  return c.json({ ok: true });
 });
 
 // DEV-ONLY: table counts for smoke tests. Safe to remove before production.

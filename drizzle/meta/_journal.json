@@ -50,6 +50,13 @@
       "when": 1789702169343,
       "tag": "0006_nasty_leech",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1789776773125,
+      "tag": "0007_famous_loa",
+      "breakpoints": true
     }
   ]
 }

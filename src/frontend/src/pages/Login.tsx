@@ -46,14 +46,18 @@ export default function Login({ onLogin }: { onLogin: () => void }) {
         localStorage.setItem('helphome_logged_in', 'true');
         localStorage.setItem('helphome_role', result.role);
         if (result.userId) localStorage.setItem('helphome_user_id', result.userId);
-		if (result.token) localStorage.setItem('helphome_token', result.token);
+        if (result.token) localStorage.setItem('helphome_token', result.token);
         if (result.workerContexts) {
           localStorage.setItem('helphome_worker_contexts', JSON.stringify(result.workerContexts));
         } else {
           localStorage.removeItem('helphome_worker_contexts');
         }
         onLogin();
-        navigate(HOMES[result.role]);
+        if (result.needsOnboarding) {
+          navigate('/onboarding');
+        } else {
+          navigate(HOMES[result.role]);
+        }
       } else {
         setError('Invalid credentials. Pick a role button above.');
       }

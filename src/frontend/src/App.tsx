@@ -10,6 +10,7 @@ import AdminHome from './pages/AdminHome';
 import ClientRequests from './pages/ClientRequests';
 import Login from './pages/Login';
 import VerifyEmail from './pages/VerifyEmail';
+import WorkerOnboarding from './pages/WorkerOnboarding';
 import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
 import Register from './pages/Register';
@@ -96,6 +97,7 @@ function App() {
           <Route path="/" element={<Home />} />
           <Route path="/login" element={<Login onLogin={() => setRole(localStorage.getItem('helphome_role') as Role)} />} />
 		  <Route path="/verify-email" element={<VerifyEmail />} />
+		  <Route path="/onboarding" element={<WorkerOnboarding />} />
 		  <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/register" element={<Register />} />

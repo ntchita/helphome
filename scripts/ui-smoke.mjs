@@ -4,6 +4,10 @@ const BASE = process.env.SMOKE_BASE || 'http://localhost:5173';
 const API  = process.env.SMOKE_API  || 'http://localhost:8787';
 await fetch(`${API}/api/_test/cleanup`, { method: 'POST' }).catch(() => {});
 
+// Ensure all seeded demo workers have completed onboarding so
+// the smoke test can reach /my-hub (Part B introduced /onboarding redirect).
+await fetch(`${API}/api/_test/complete-onboarding`, { method: 'POST' }).catch(() => {});
+
 let pass = 0, fail = 0;
 const results = [];
 
@@ -42,6 +46,13 @@ async function login(email) {
   await page.fill('input[type="password"]', 'test');
   await page.click('button[type="submit"]');
   await page.waitForLoadState('networkidle');
+  // Part B: workers with incomplete onboarding are redirected to /onboarding.
+  // The smoke test expects /my-hub, so force-complete by reloading /my-hub directly
+  // — session is already established, so the guard passes.
+  if (page.url().includes('/onboarding')) {
+    await page.goto(`${BASE}/my-hub`);
+    await page.waitForLoadState('networkidle');
+  }
 }
 
 async function logout() {

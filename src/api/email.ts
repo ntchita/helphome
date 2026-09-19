@@ -76,3 +76,38 @@ export async function sendPasswordResetEmail(to: string, fullName: string, reset
 
   if (error) throw new Error(`Resend error: ${error.message}`);
 }
+
+export async function sendBookingNotificationEmail(
+  to: string,
+  workerName: string,
+  clientName: string,
+  serviceType: string,
+  whenText: string,
+  actionUrl: string
+): Promise<void> {
+  const apiKey = await getApiKey();
+  const resend = new Resend(apiKey);
+
+  const { error } = await resend.emails.send({
+    from: FROM,
+    to,
+    subject: `New booking request from ${clientName}`,
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 560px; margin: 0 auto; padding: 24px;">
+        <h1 style="color: #00A3E0; font-family: Georgia, serif;">New booking request</h1>
+        <p>Hi ${workerName},</p>
+        <p><strong>${clientName}</strong> has requested support from you:</p>
+        <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
+          <tr><td style="padding: 8px; border-bottom: 1px solid #eee; color: #61707B;">Service</td><td style="padding: 8px; border-bottom: 1px solid #eee;">${serviceType}</td></tr>
+          <tr><td style="padding: 8px; border-bottom: 1px solid #eee; color: #61707B;">When</td><td style="padding: 8px; border-bottom: 1px solid #eee;">${whenText}</td></tr>
+        </table>
+        <p style="text-align: center; margin: 32px 0;">
+          <a href="${actionUrl}" style="background: #00A3E0; color: #fff; padding: 14px 32px; border-radius: 999px; text-decoration: none; font-weight: bold; display: inline-block;">View in My Hub</a>
+        </p>
+        <p style="color: #61707B; font-size: 0.9em;">Declining never affects your rating or pay. No penalty, ever.</p>
+      </div>
+    `,
+  });
+
+  if (error) throw new Error(`Resend error: ${error.message}`);
+}

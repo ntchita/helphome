@@ -3,7 +3,7 @@ import { cors } from 'hono/cors';
 import { eq, and, inArray, desc, gte } from 'drizzle-orm';
 import bcrypt from 'bcryptjs';
 import { signToken, verifyToken, extractBearer } from './auth.ts';
-import { sendVerificationEmail, sendPasswordResetEmail } from './email.ts';
+import { sendVerificationEmail, sendPasswordResetEmail, sendBookingNotificationEmail } from './email.ts';
 import { randomBytes, createHash } from 'crypto';
 import { getDb, schema } from '../db/connection.ts';
 import { calculateWellnessMatch, rankWorkers } from './utils/matcher.ts';
@@ -251,6 +251,28 @@ app.post('/api/bookings', async (c) => {
     matchScore,
     matchedOn: overlap,
   }).returning();
+
+  // Notify the worker by email (fail-soft: never block the booking)
+  try {
+    const [wpUser] = await db.select().from(schema.users).where(eq(schema.users.id, wp.userId)).limit(1);
+    if (wpUser?.email) {
+      const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+      const pad = (n: number) => String(n).padStart(2, '0');
+      const whenText = `${days[startTime.getDay()]} ${pad(startTime.getHours())}:${pad(startTime.getMinutes())}`;
+      const origin = c.req.header('origin') || 'http://localhost:5173';
+      const actionUrl = `${origin}/my-hub`;
+      await sendBookingNotificationEmail(
+        wpUser.email,
+        wpUser.fullName || 'there',
+        cp.fullName,
+        shift.serviceType || 'Standard Support',
+        whenText,
+        actionUrl
+      );
+    }
+  } catch (e: any) {
+    console.error('❌ Booking notification email failed:', e.message);
+  }
 
   return c.json({ ok: true, matchScore, shiftId: shift.id }, 201);
 });
